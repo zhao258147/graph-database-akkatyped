@@ -1,0 +1,5 @@
+export HTTP_PORT=8881
+export REMOTE_PORT=2551
+export SEED_HOST_NAME1=localhost
+export SEED_HOST_NAME2=localhost
+export PROMETHEUS_PORT=9003
