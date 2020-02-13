@@ -10,8 +10,9 @@ import com.datastax.driver.core.Session
 import com.example.graph.GraphNodeEntity._
 import com.example.graph.http.Requests._
 import com.example.graph.query.GraphQueryActor.GraphQueryReply
-import com.example.graph.query.GraphQuerySupervisor
-import com.example.graph.query.GraphQuerySupervisor.StartGraphQueryActor
+import com.example.graph.query.GraphActorSupervisor
+import com.example.graph.query.GraphActorSupervisor.{StartEdgeSagaActor, StartGraphQueryActor}
+import com.example.graph.saga.EdgeCreationSaga.EdgeCreationReply
 import de.heikoseeberger.akkahttpjson4s.Json4sSupport
 import org.json4s.{DefaultFormats, Formats, native}
 
@@ -25,8 +26,9 @@ object RequestApi extends Json4sSupport {
 
   def route(
     graphCordinator: ActorRef[ShardingEnvelope[GraphNodeCommand[GraphNodeCommandReply]]],
-    graphQuerySupervisor: ActorRef[GraphQuerySupervisor.GraphQuerySupervisorCommand]
+    graphActorSupervisor: ActorRef[GraphActorSupervisor.GraphQuerySupervisorCommand]
   )(implicit system: akka.actor.typed.ActorSystem[Nothing], ec: ExecutionContext, session: Session): Route = {
+
 
     pathPrefix("api") {
       pathPrefix("graph") {
@@ -43,39 +45,25 @@ object RequestApi extends Json4sSupport {
           post {
             entity(as[GraphQueryReq]) { query =>
               complete(
-                graphQuerySupervisor.ask[GraphQueryReply] { ref =>
-                  StartGraphQueryActor(query.nodeType, query.queries, ref)
+                graphActorSupervisor.ask[GraphQueryReply] { ref =>
+                  StartGraphQueryActor(query.queries, ref)
                 }
               )
             }
           }
         } ~
         pathPrefix(Segment) { nodeId =>
-          get {
-            complete(
-              graphCordinator.ask[GraphNodeCommandReply] { ref =>
-                ShardingEnvelope(nodeId, NodeQuery(ref))
-              }
-            )
-          } ~
-          post {
-            entity(as[UpdateNodeReq]) { update =>
-              complete(
-                graphCordinator.ask[GraphNodeCommandReply] { ref =>
-                  ShardingEnvelope(nodeId, UpdateNodeCommand(update.properties, ref))
-                }
-              )
-            }
-          } ~
           pathPrefix("edge") {
             get {
               parameterMap { params =>
                 val edgeTypeParam = "edgeType"
+                val nodeTypeParam = "nodeType"
+
                 params.get(edgeTypeParam) match {
                   case Some(edgeType) =>
                     complete(
                       graphCordinator.ask[GraphNodeCommandReply] { ref: ActorRef[GraphNodeCommandReply] =>
-                        ShardingEnvelope(nodeId, EdgeQuery(None, Map.empty, Some(edgeType), params - edgeTypeParam, ref))
+                        ShardingEnvelope(nodeId, EdgeQuery(nodeId, params.get(nodeTypeParam), Map.empty, Some(edgeType), params - edgeTypeParam - nodeTypeParam, ref))
                       }
                     )
                   case None =>
@@ -87,24 +75,36 @@ object RequestApi extends Json4sSupport {
               entity(as[RemoveEdgeReq]) { removeEdgeReq =>
                 complete(
                   graphCordinator.ask[GraphNodeCommandReply] { ref =>
-                    ShardingEnvelope(nodeId, RemoveEdge(removeEdgeReq.targetNodeId, removeEdgeReq.edgeType, ref))
+                    ShardingEnvelope(nodeId, RemoveEdgeCommand(nodeId, removeEdgeReq.targetNodeId, removeEdgeReq.edgeType, ref))
                   }
                 )
               }
             } ~
             post {
               entity(as[UpdateEdgeReq]) { updateEdgeReq =>
-                println(updateEdgeReq)
-                val direction = updateEdgeReq.direction match {
-                  case _ =>
-                    To(updateEdgeReq.targetNodeId)
-                }
                 complete(
-                  graphCordinator.ask[GraphNodeCommandReply] { ref =>
-                    ShardingEnvelope(nodeId, UpdateEdge(updateEdgeReq.targetNodeId, updateEdgeReq.edgeType, direction, updateEdgeReq.properties, ref))
+                  graphActorSupervisor.ask[EdgeCreationReply] { ref =>
+                    StartEdgeSagaActor(nodeId, updateEdgeReq.targetNodeId, updateEdgeReq.edgeType, updateEdgeReq.properties, ref)
                   }
                 )
               }
+            }
+          } ~
+          get {
+            complete(
+              graphCordinator.ask[GraphNodeCommandReply] { ref =>
+                ShardingEnvelope(nodeId, NodeQuery(nodeId, ref))
+              }
+            )
+          } ~
+          post {
+            entity(as[UpdateNodeReq]) { update =>
+              println(update)
+              complete(
+                graphCordinator.ask[GraphNodeCommandReply] { ref =>
+                  ShardingEnvelope(nodeId, UpdateNodeCommand(nodeId, update.properties, ref))
+                }
+              )
             }
           }
         }

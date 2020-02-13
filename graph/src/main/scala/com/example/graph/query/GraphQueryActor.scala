@@ -17,7 +17,7 @@ object GraphQueryActor {
   sealed trait GraphQueryCommand
   case class NodesInformation(nodes: Set[String]) extends GraphQueryCommand
   case class NodesInformationFailed(error: String) extends GraphQueryCommand
-  case class GraphQuery(replyTo: ActorRef[GraphQueryReply]) extends GraphQueryCommand
+  case class GraphQuery(graphQueries: List[QueryReq], replyTo: ActorRef[GraphQueryReply]) extends GraphQueryCommand
   case class WrappedNodeEntityResponse(nodeEntityResponse: GraphNodeCommandReply) extends GraphQueryCommand
 
   sealed trait GraphQueryReply
@@ -46,7 +46,6 @@ object GraphQueryActor {
 
   def GraphQueryBehaviour(
     graphCordinator: ActorRef[ShardingEnvelope[GraphNodeCommand[GraphNodeCommandReply]]],
-    graphQueries: List[QueryReq]
   )(implicit session: Session): Behavior[GraphQueryCommand] = Behaviors.setup[GraphQueryCommand] { context =>
     implicit val system = context.system
     implicit val timeout: Timeout = 30.seconds
@@ -72,28 +71,31 @@ object GraphQueryActor {
             }.getOrElse(allCollectedPairs)
           } else allCollectedPairs
 
+          println("toCollect")
+          println(toCollect)
+
           if(allCollected) {
             // when all nodes have successfully returned
             val newStateList = toCollect +: updatedAllCollectedPairs
 
-            if(toCollect.isEmpty){
+            if(toCollect.isEmpty && !graph.isEmpty){
               //case 1, if search result is exhausted, reply with empty and stop
-              val allGraphs: Set[Seq[TargetNodeId]] = toCollect.foldLeft(Set.empty[Seq[TargetNodeId]]){
-                case (acc, linkedNodes: PairNodes) =>
-                  acc ++ buildMap(newStateList, linkedNodes.toNodeId, Seq.empty)
-              }
               replyTo ! GraphQueryReplySuccess(Set.empty)
               Behaviors.stopped
             } else {
               // case 2, continue with next query
               graph.headOption.map { head: QueryReq =>
                 toCollect.foreach{ linkedNodes: PairNodes =>
-                  graphCordinator ! ShardingEnvelope(linkedNodes.toNodeId, EdgeQuery(head.nodeType, head.nodeProperties, head.edgeType, head.edgeProperties, nodeEntityResponseMapper))
+                  graphCordinator ! ShardingEnvelope(linkedNodes.toNodeId, EdgeQuery(linkedNodes.toNodeId, head.nodeType, head.nodeProperties, head.edgeType, head.edgeProperties, nodeEntityResponseMapper))
                 }
                 queryInfo(newStateList, graph.tail, replyTo, head)
               }.getOrElse{
-                //case 3, no more queries
-                replyTo ! GraphQueryReplyFailed("cannot process request")
+                //case 3, no more queries, compute all connected nodes and return
+                val allGraphs: Set[Seq[TargetNodeId]] = toCollect.foldLeft(Set.empty[Seq[TargetNodeId]]){
+                  case (acc, linkedNodes: PairNodes) =>
+                    acc ++ buildMap(newStateList, linkedNodes.toNodeId, Seq.empty)
+                }
+                replyTo ! GraphQueryReplySuccess(allGraphs)
                 Behaviors.stopped
               }
             }
@@ -103,12 +105,14 @@ object GraphQueryActor {
           }
       }
 
-    def nodesInfo(replyTo: ActorRef[GraphQueryReply]): Behavior[GraphQueryCommand] =
+    def nodesInfo(graphQueries: List[QueryReq], replyTo: ActorRef[GraphQueryReply]): Behavior[GraphQueryCommand] =
       Behaviors.receiveMessagePartial {
         case NodesInformation(nodes) =>
+          println("nodes "*40)
+          println(nodes)
           graphQueries.headOption.map { head =>
             nodes.foreach{ nodeId =>
-              graphCordinator ! ShardingEnvelope(nodeId, EdgeQuery(head.nodeType, head.nodeProperties, head.edgeType, head.edgeProperties, nodeEntityResponseMapper))
+              graphCordinator ! ShardingEnvelope(nodeId, EdgeQuery(nodeId, head.nodeType, head.nodeProperties, head.edgeType, head.edgeProperties, nodeEntityResponseMapper))
             }
             queryInfo(Seq(nodes.map(PairNodes(emptyTargetNodeId, _))), graphQueries.tail, replyTo, head)
           }.getOrElse{
@@ -123,12 +127,17 @@ object GraphQueryActor {
 
     val initial: Behavior[GraphQueryCommand] =
       Behaviors.receiveMessagePartial {
-        case GraphQuery(replyTo) =>
+        case GraphQuery(graphQueries, replyTo) =>
           val nextBehaviour = for {
             query <- graphQueries.headOption
             nodeType <- query.nodeType
           } yield {
-            val stmt = new SimpleStatement(s"SELECT * FROM graph.nodes WHERE type = '${query.nodeType}'")
+            val stmt = query.nodeType match {
+              case Some(nodeType) =>
+                new SimpleStatement(s"SELECT * FROM graph.nodes WHERE type = '$nodeType'")
+              case None =>
+                new SimpleStatement(s"SELECT * FROM graph.nodes")
+            }
 
             val nodes = CassandraSource(stmt)
               .map(_.getString("id"))
@@ -141,7 +150,7 @@ object GraphQueryActor {
                 NodesInformationFailed(e.getMessage)
             }
 
-            nodesInfo(replyTo)
+            nodesInfo(graphQueries, replyTo)
           }
 
           nextBehaviour.getOrElse{

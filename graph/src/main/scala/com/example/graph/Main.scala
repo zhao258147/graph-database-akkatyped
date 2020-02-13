@@ -15,7 +15,7 @@ import com.example.graph.GraphNodeEntity
 import com.example.graph.GraphNodeEntity.{GraphNodeCommand, GraphNodeCommandReply}
 import com.example.graph.config.GraphConfig
 import com.example.graph.http.{CORSHandler, RequestApi}
-import com.example.graph.query.GraphQuerySupervisor
+import com.example.graph.query.GraphActorSupervisor
 import com.example.graph.readside.ReadSideActor
 import com.typesafe.config.ConfigFactory
 import net.ceedubs.ficus.Ficus._
@@ -56,7 +56,7 @@ object Main extends App {
       )
     )
 
-  val graphQuerySupervisor = system.spawn(GraphQuerySupervisor.apply(shardRegion), "graphQuerySupervisor")
+  val graphQuerySupervisor = system.spawn(GraphActorSupervisor.apply(shardRegion), "graphQuerySupervisor")
 
   val route: Route = RequestApi.route(shardRegion, graphQuerySupervisor)
 

@@ -32,7 +32,11 @@ object ReadSideActor {
       (e: EventEnvelope, statement: PreparedStatement) => {
         e.event match {
           case elemToInsert: GraphNodeUpdated =>
-            statement.bind(elemToInsert.nodeType, elemToInsert.id, if(elemToInsert.columns.isEmpty) null else elemToInsert.columns)
+            statement.bind(
+              elemToInsert.nodeType,
+              elemToInsert.id,
+              if(elemToInsert.properties.isEmpty) null else elemToInsert.properties
+            )
           case _ =>
             throw new RuntimeException("wrong message")
         }
