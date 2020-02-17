@@ -52,6 +52,7 @@ object GraphNodeEntity {
       new JsonSubTypes.Type(value = classOf[RemoveEdgeCommand], name = "RemoveEdgeCommand"),
       new JsonSubTypes.Type(value = classOf[UpdateEdgeCommand], name = "UpdateEdgeCommand"),
       new JsonSubTypes.Type(value = classOf[TimerCommand], name = "TimerCommand"),
+      new JsonSubTypes.Type(value = classOf[GetLocation], name = "GetLocation"),
       new JsonSubTypes.Type(value = classOf[EdgeQuery], name = "EdgeQuery"),
       new JsonSubTypes.Type(value = classOf[NodeQuery], name = "NodeQuery")))
 //  sealed trait GraphNodeCommand[Reply <: GraphNodeCommandReply] {
@@ -77,6 +78,8 @@ object GraphNodeEntity {
     Array(
       new JsonSubTypes.Type(value = classOf[GraphNodeCommandSuccess], name = "GraphNodeCommandSuccess"),
       new JsonSubTypes.Type(value = classOf[GraphNodeCommandFailed], name = "GraphNodeCommandFailed"),
+      new JsonSubTypes.Type(value = classOf[NodeQueryResult], name = "NodeQueryResult"),
+      new JsonSubTypes.Type(value = classOf[NodeLocation], name = "NodeLocation"),
       new JsonSubTypes.Type(value = classOf[EdgeQueryResult], name = "EdgeQueryResult")))
   sealed trait GraphNodeCommandReply {
     val nodeId: NodeId
@@ -86,7 +89,7 @@ object GraphNodeEntity {
   case class EdgeQueryResult(nodeId: NodeId, edgeResult: Set[Edge], nodeResult: Boolean) extends GraphNodeCommandReply
   case class NodeQueryResult(nodeId: NodeId, nodeType: NodeType, properties: NodeProperties) extends GraphNodeCommandReply
 
-  case class NodeLocation(nodeId: NodeId, x: Int, y:Int, angle: Double, mass: Int) extends GraphNodeCommandReply
+  case class NodeLocation(nodeId: NodeId, x: Int, y:Int, angle: Double, mass: Double, edges: Set[Edge]) extends GraphNodeCommandReply
 
 
   @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
@@ -94,12 +97,13 @@ object GraphNodeEntity {
     Array(
       new JsonSubTypes.Type(value = classOf[GraphNodeEdgeRemoved], name = "GraphNodeEdgeRemoved"),
       new JsonSubTypes.Type(value = classOf[GraphNodeUpdated], name = "GraphNodeUpdated"),
+      new JsonSubTypes.Type(value = classOf[MoveEvent], name = "MoveEvent"),
       new JsonSubTypes.Type(value = classOf[GraphNodeEdgeUpdated], name = "GraphNodeEdgeUpdated")))
   sealed trait GraphNodeEvent
   case class GraphNodeUpdated(id: NodeId, nodeType: NodeType, properties: NodeProperties) extends GraphNodeEvent
   case class GraphNodeEdgeRemoved(targetNodeId: TargetNodeId, edgeType: EdgeType) extends  GraphNodeEvent
   case class GraphNodeEdgeUpdated(edgeType: EdgeType, direction: EdgeDirection, properties: EdgeProperties) extends GraphNodeEvent
-  case class MoveEvent(x: Int, y: Int, angle: Double) extends GraphNodeEvent
+  case class MoveEvent(x: Int, y: Int, angle: Double, cur: Int) extends GraphNodeEvent
 
   @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
   @JsonSubTypes(
@@ -116,7 +120,8 @@ object GraphNodeEntity {
     inEdges: EdgesWithProperties,
     x: Int,
     y: Int,
-    angle: Double
+    angle: Double,
+    cur: Int
   ) extends GraphNodeState
 
   private def commandHandler(context: ActorContext[GraphNodeCommand], timer: TimerScheduler[GraphNodeCommand]):
@@ -176,17 +181,16 @@ object GraphNodeEntity {
               println(createdState.nodeType)
               createdState.nodeType match {
                 case "planet" | "dwarf" =>
-                  val speed = 1
+                  val speed = 10
                   val moveEventOpt = for {
                     edges <- createdState.outEdges.get("orbit")
                     edge <- edges.values.headOption
                     op <- edge.properties.get("orbitalperiod").map(_.toDouble)
                     radius <- edge.properties.get("distance").map(_.toInt)
                   } yield {
-                    val p = (createdState.angle % 360)/360
-                    val cur = p * op.toDouble + speed
-                    val angle: Double = cur / op.toDouble * 360
-                    MoveEvent(findX(angle, radius), findY(angle, radius), angle)
+                    val cur = createdState.cur + speed
+                    val angle: Double = ((cur / op.toDouble) * 360) % 360
+                    MoveEvent(findX(angle, radius), findY(angle, radius), angle, cur)
                   }
 
                   moveEventOpt match {
@@ -200,13 +204,18 @@ object GraphNodeEntity {
               }
 
             case GetLocation(id, replyTo) =>
-              createdState.properties.get("mass") match {
-                case Some(mass) =>
-                  Effect.reply(replyTo)(NodeLocation(id, createdState.x, createdState.y, createdState.angle, mass.toInt))
+              val nlOpt = for {
+                mass <- createdState.properties.get("mass")
+                edges <- createdState.outEdges.get("orbit").map(_.values.toSet)
+              } yield {
+                NodeLocation(id, createdState.x, createdState.y, createdState.angle, mass.toDouble, edges)
+              }
+              nlOpt match {
+                case Some(nl) =>
+                  Effect.reply(replyTo)(nl)
                 case None =>
                   Effect.noReply
               }
-
 
             case nodeQuery: NodeQuery =>
               Effect.reply(nodeQuery.replyTo)(NodeQueryResult(createdState.nodeId, createdState.nodeType, createdState.properties))
@@ -268,7 +277,8 @@ object GraphNodeEntity {
               inEdges = Map.empty,
               x = 0,
               y = 0,
-              angle = 0
+              angle = 0,
+              cur = 0
             )
           case _ =>
             state
@@ -301,12 +311,13 @@ object GraphNodeEntity {
               outEdges = createdState.outEdges + (edgeType -> newTargetEdges),
             )
 
-          case MoveEvent(x, y, angle) =>
+          case MoveEvent(x, y, angle, cur) =>
             println(s"($x, $y) " * 20)
             createdState.copy(
               x = x,
               y = y,
-              angle = angle
+              angle = angle,
+              cur = cur
             )
 
           case GraphNodeEdgeUpdated(edgeType, From(nodeId), properties) =>

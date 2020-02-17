@@ -12,9 +12,9 @@ object LocationQueryActor {
   case class WrappedNodeEntityResponse(nodeEntityResponse: GraphNodeCommandReply) extends LocationQueryCommand
 
   sealed trait LocationQueryReply
-  case class Locations(collected: Map[String, NodeLocation]) extends LocationQueryReply
+  case class Locations(collected: Set[NodeLocation]) extends LocationQueryReply
 
-  val planets = Set("Sun", "Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto", "Ceres", "Eris", "Makemake", "Haumea", "Sedna", "Quaoar", "Orcus", "OR10")
+  val planets = Set("Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune")//, "Pluto", "Ceres", "Eris", "Makemake", "Haumea", "Sedna", "Quaoar", "Orcus", "OR10")
 
   def locationQueryBehaviour(
     graphCordinator: ActorRef[ShardingEnvelope[GraphNodeCommand]],
@@ -22,11 +22,12 @@ object LocationQueryActor {
     val nodeEntityResponseMapper: ActorRef[GraphNodeCommandReply] =
       context.messageAdapter(rsp => WrappedNodeEntityResponse(rsp))
 
-    def collectResp(collected: Map[String, NodeLocation], replyTo: ActorRef[LocationQueryReply]): Behavior[LocationQueryCommand] =
+    def collectResp(collected: Set[NodeLocation], replyTo: ActorRef[LocationQueryReply]): Behavior[LocationQueryCommand] =
       Behaviors.receiveMessagePartial {
         case WrappedNodeEntityResponse(rsp: NodeLocation) =>
-          val cur = collected + (rsp.nodeId -> rsp)
-          if(cur.keySet.size == planets.size) {
+          val cur = collected + rsp
+          println(cur)
+          if(cur.size == planets.size) {
             replyTo ! Locations(cur)
             Behaviors.stopped
           } else collectResp(cur, replyTo)
@@ -38,7 +39,7 @@ object LocationQueryActor {
           nodeIds.foreach{ node =>
             graphCordinator ! ShardingEnvelope(node, GetLocation(node, nodeEntityResponseMapper))
           }
-          collectResp(Map.empty, replyTo)
+          collectResp(Set.empty, replyTo)
       }
 
     initial
