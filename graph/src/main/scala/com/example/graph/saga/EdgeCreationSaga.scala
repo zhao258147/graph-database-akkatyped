@@ -17,7 +17,7 @@ object EdgeCreationSaga {
   case class EdgeCreationReplyFailed() extends EdgeCreationReply
 
   def EdgeCreationBehaviour(
-    graphCordinator: ActorRef[ShardingEnvelope[GraphNodeCommand[GraphNodeCommandReply]]]
+    graphCordinator: ActorRef[ShardingEnvelope[GraphNodeCommand]]
   ): Behavior[EdgeCreationCommand] = Behaviors.setup[EdgeCreationCommand] { context =>
     implicit val system: ActorSystem[Nothing] = context.system
     implicit val ex: ExecutionContextExecutor = context.executionContext

@@ -18,7 +18,7 @@ object ShortestPathQueryActor {
   case class GraphQueryReplyFailed(error: String) extends ShortestPathReply
 
   def ShortestPathBehaviour(
-    graphCordinator: ActorRef[ShardingEnvelope[GraphNodeCommand[GraphNodeCommandReply]]],
+    graphCordinator: ActorRef[ShardingEnvelope[GraphNodeCommand]],
     start: TargetNodeId,
     end: TargetNodeId
   )(implicit session: Session): Behavior[ShortestPathCommand] = Behaviors.setup[ShortestPathCommand] { context =>

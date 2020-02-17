@@ -9,7 +9,8 @@ import com.datastax.driver.core.Session
 import com.example.graph.GraphNodeEntity.{EdgeDirection, EdgeProperties, EdgeType, GraphNodeCommand, GraphNodeCommandReply, NodeId, TargetNodeId}
 import com.example.graph.http.Requests.QueryReq
 import com.example.graph.query.GraphQueryActor.{GraphQuery, GraphQueryReply}
-import com.example.graph.query.GraphActorSupervisor.{GraphQuerySupervisorCommand, StartEdgeSagaActor, StartGraphQueryActor}
+import com.example.graph.query.GraphActorSupervisor.{GraphQuerySupervisorCommand, StartEdgeSagaActor, StartGraphQueryActor, StartLocationQueryActor}
+import com.example.graph.query.LocationQueryActor.{LocationQuery, LocationQueryReply}
 import com.example.graph.saga.EdgeCreationSaga
 import com.example.graph.saga.EdgeCreationSaga.{EdgeCreation, EdgeCreationReply}
 
@@ -17,15 +18,17 @@ object GraphActorSupervisor {
   sealed trait GraphQuerySupervisorCommand
   case class StartGraphQueryActor(graph: List[QueryReq], replyTo: ActorRef[GraphQueryReply]) extends GraphQuerySupervisorCommand
   case class StartEdgeSagaActor(nodeId: NodeId, targetNodeId: TargetNodeId, edgeType: EdgeType, properties: EdgeProperties, replyTo: ActorRef[EdgeCreationReply]) extends GraphQuerySupervisorCommand
+  case class StartLocationQueryActor(replyTo: ActorRef[LocationQueryReply]) extends GraphQuerySupervisorCommand
 
-  def apply(graphCordinator: ActorRef[ShardingEnvelope[GraphNodeCommand[GraphNodeCommandReply]]])
+
+  def apply(graphCordinator: ActorRef[ShardingEnvelope[GraphNodeCommand]])
     (implicit session: Session): Behavior[GraphQuerySupervisorCommand] =
     Behaviors.setup[GraphQuerySupervisorCommand](context => new GraphActorSupervisor(graphCordinator, context))
 
 }
 
 class GraphActorSupervisor(
-  graphCordinator: ActorRef[ShardingEnvelope[GraphNodeCommand[GraphNodeCommandReply]]],
+  graphCordinator: ActorRef[ShardingEnvelope[GraphNodeCommand]],
   context: ActorContext[GraphQuerySupervisorCommand]
 )(implicit session: Session) extends AbstractBehavior[GraphQuerySupervisorCommand](context) {
   val queryActorBehaviour =
@@ -54,6 +57,14 @@ class GraphActorSupervisor(
         sagaActor ! EdgeCreation(saga.nodeId, saga.targetNodeId, saga.edgeType, saga.properties, saga.replyTo)
 
         Behaviors.same
+
+      case StartLocationQueryActor(replyTo) =>
+        val actor = context.spawn(LocationQueryActor.locationQueryBehaviour(graphCordinator), UUID.randomUUID().toString)
+
+        actor ! LocationQuery(LocationQueryActor.planets, replyTo)
+
+        Behaviors.same
+
     }
   }
 }

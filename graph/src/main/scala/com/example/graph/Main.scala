@@ -45,7 +45,7 @@ object Main extends App {
 
   val settings = ClusterShardingSettings(typedSystem)
 
-  val TypeKey = EntityTypeKey[GraphNodeCommand[GraphNodeCommandReply]]("graph")
+  val TypeKey = EntityTypeKey[GraphNodeCommand]("graph")
 
   val shardRegion =
     sharding.init(Entity(TypeKey)(

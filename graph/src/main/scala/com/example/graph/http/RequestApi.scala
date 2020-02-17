@@ -11,7 +11,8 @@ import com.example.graph.GraphNodeEntity._
 import com.example.graph.http.Requests._
 import com.example.graph.query.GraphQueryActor.GraphQueryReply
 import com.example.graph.query.GraphActorSupervisor
-import com.example.graph.query.GraphActorSupervisor.{StartEdgeSagaActor, StartGraphQueryActor}
+import com.example.graph.query.GraphActorSupervisor.{StartEdgeSagaActor, StartGraphQueryActor, StartLocationQueryActor}
+import com.example.graph.query.LocationQueryActor.LocationQueryReply
 import com.example.graph.saga.EdgeCreationSaga.EdgeCreationReply
 import de.heikoseeberger.akkahttpjson4s.Json4sSupport
 import org.json4s.{DefaultFormats, Formats, native}
@@ -25,7 +26,7 @@ object RequestApi extends Json4sSupport {
   implicit val formats: Formats = DefaultFormats
 
   def route(
-    graphCordinator: ActorRef[ShardingEnvelope[GraphNodeCommand[GraphNodeCommandReply]]],
+    graphCordinator: ActorRef[ShardingEnvelope[GraphNodeCommand]],
     graphActorSupervisor: ActorRef[GraphActorSupervisor.GraphQuerySupervisorCommand]
   )(implicit system: akka.actor.typed.ActorSystem[Nothing], ec: ExecutionContext, session: Session): Route = {
 
@@ -51,6 +52,14 @@ object RequestApi extends Json4sSupport {
               )
             }
           }
+        } ~
+        pathPrefix("location") {
+          get {
+            complete(
+              graphActorSupervisor.ask[LocationQueryReply] { ref =>
+                StartLocationQueryActor(ref)
+              })
+            }
         } ~
         pathPrefix(Segment) { nodeId =>
           pathPrefix("edge") {

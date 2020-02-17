@@ -45,7 +45,7 @@ object GraphQueryActor {
   }
 
   def GraphQueryBehaviour(
-    graphCordinator: ActorRef[ShardingEnvelope[GraphNodeCommand[GraphNodeCommandReply]]],
+    graphCordinator: ActorRef[ShardingEnvelope[GraphNodeCommand]],
   )(implicit session: Session): Behavior[GraphQueryCommand] = Behaviors.setup[GraphQueryCommand] { context =>
     implicit val system = context.system
     implicit val timeout: Timeout = 30.seconds
