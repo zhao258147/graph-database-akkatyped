@@ -2,6 +2,7 @@ package com.example.graph
 
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors, TimerScheduler}
 import akka.actor.typed.{ActorRef, Behavior}
+import akka.cluster.ddata.typed.scaladsl.DistributedData
 import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, ReplyEffect, RetentionCriteria}
 import com.example.graph.readside.ReadSideActor
@@ -103,7 +104,7 @@ object GraphNodeEntity {
   case class GraphNodeUpdated(id: NodeId, nodeType: NodeType, properties: NodeProperties) extends GraphNodeEvent
   case class GraphNodeEdgeRemoved(targetNodeId: TargetNodeId, edgeType: EdgeType) extends  GraphNodeEvent
   case class GraphNodeEdgeUpdated(edgeType: EdgeType, direction: EdgeDirection, properties: EdgeProperties) extends GraphNodeEvent
-  case class MoveEvent(x: Int, y: Int, angle: Double, cur: Int) extends GraphNodeEvent
+  case class MoveEvent(id: NodeId, x: Int, y: Int, angle: Double, cur: Int) extends GraphNodeEvent
 
   @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
   @JsonSubTypes(
@@ -190,7 +191,7 @@ object GraphNodeEntity {
                   } yield {
                     val cur = createdState.cur + speed
                     val angle: Double = ((cur / op.toDouble) * 360) % 360
-                    MoveEvent(findX(angle, radius), findY(angle, radius), angle, cur)
+                    MoveEvent(createdState.nodeId, findX(angle, radius), findY(angle, radius), angle, cur)
                   }
 
                   moveEventOpt match {
@@ -208,7 +209,8 @@ object GraphNodeEntity {
                 mass <- createdState.properties.get("mass")
                 edges <- createdState.outEdges.get("orbit").map(_.values.toSet)
               } yield {
-                NodeLocation(id, createdState.x, createdState.y, createdState.angle, mass.toDouble, edges)
+                val shortEdges = createdState.outEdges.get("shortest").map(_.values.toSet).getOrElse(Set.empty)
+                NodeLocation(id, createdState.x, createdState.y, createdState.angle, mass.toDouble, shortEdges)
               }
               nlOpt match {
                 case Some(nl) =>
@@ -311,7 +313,7 @@ object GraphNodeEntity {
               outEdges = createdState.outEdges + (edgeType -> newTargetEdges),
             )
 
-          case MoveEvent(x, y, angle, cur) =>
+          case MoveEvent(_, x, y, angle, cur) =>
             println(s"($x, $y) " * 20)
             createdState.copy(
               x = x,
@@ -365,7 +367,8 @@ object GraphNodeEntity {
       )
         .withRetention(RetentionCriteria.snapshotEvery(numberOfEvents = 20, keepNSnapshots = 2))
         .withTagger{
-          case _: GraphNodeUpdated => Set(ReadSideActor.NodeUpdateEventName)
+//          case _: GraphNodeUpdated => Set(ReadSideActor.NodeUpdateEventName)
+          case _: MoveEvent => Set(ReadSideActor.MoveEventName)
           case _ => Set.empty
         }
     }

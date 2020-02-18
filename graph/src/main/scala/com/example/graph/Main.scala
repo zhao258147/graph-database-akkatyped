@@ -1,9 +1,9 @@
 package com.example.personalization
 
 import akka.actor.ActorSystem
-import akka.actor.typed.SupervisorStrategy
+import akka.actor.typed.{ActorRef, SupervisorStrategy}
 import akka.actor.typed.scaladsl.Behaviors
-import akka.cluster.sharding.typed.ClusterShardingSettings
+import akka.cluster.sharding.typed.{ClusterShardingSettings, ShardingEnvelope}
 import akka.cluster.sharding.typed.scaladsl.{ClusterSharding, Entity, EntityTypeKey}
 import akka.cluster.typed.{ClusterSingleton, SingletonActor}
 import akka.http.scaladsl.Http
@@ -47,7 +47,7 @@ object Main extends App {
 
   val TypeKey = EntityTypeKey[GraphNodeCommand]("graph")
 
-  val shardRegion =
+  val shardRegion: ActorRef[ShardingEnvelope[GraphNodeCommand]] =
     sharding.init(Entity(TypeKey)(
       createBehavior = entityContext =>
         GraphNodeEntity.nodeEntityBehaviour(
@@ -70,5 +70,5 @@ object Main extends App {
 
   val singletonManager = ClusterSingleton(typedSystem)
   val readSideActor = singletonManager.init(
-    SingletonActor(Behaviors.supervise(ReadSideActor.ReadSideActorBehaviour(config.readSideConfig)).onFailure[Exception](SupervisorStrategy.restart), "ReadSide"))
+    SingletonActor(Behaviors.supervise(ReadSideActor.ReadSideActorBehaviour(config.readSideConfig, shardRegion)).onFailure[Exception](SupervisorStrategy.restart), "ReadSide"))
 }

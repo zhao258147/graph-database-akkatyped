@@ -26,6 +26,7 @@ object LocationQueryActor {
       Behaviors.receiveMessagePartial {
         case WrappedNodeEntityResponse(rsp: NodeLocation) =>
           val cur = collected + rsp
+          println("cur" * 20)
           println(cur)
           if(cur.size == planets.size) {
             replyTo ! Locations(cur)
