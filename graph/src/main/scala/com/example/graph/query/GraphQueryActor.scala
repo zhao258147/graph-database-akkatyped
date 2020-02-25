@@ -61,7 +61,6 @@ object GraphQueryActor {
           val toCollect = toIds.map(PairNodes(nodeId, _)) ++ nextNodes
 
           val allCollected = allCollectedPairs.headOption.exists{ nodes =>
-            println(nodes.map(_.toNodeId))
             nodes.map(_.toNodeId).subsetOf(collectedNodes)
           }
 
@@ -70,9 +69,6 @@ object GraphQueryActor {
               nodes.filter(_.toNodeId != nodeId) +: allCollectedPairs.tail
             }.getOrElse(allCollectedPairs)
           } else allCollectedPairs
-
-          println("toCollect")
-          println(toCollect)
 
           if(allCollected) {
             // when all nodes have successfully returned
@@ -108,8 +104,6 @@ object GraphQueryActor {
     def nodesInfo(graphQueries: List[QueryReq], replyTo: ActorRef[GraphQueryReply]): Behavior[GraphQueryCommand] =
       Behaviors.receiveMessagePartial {
         case NodesInformation(nodes) =>
-          println("nodes "*40)
-          println(nodes)
           graphQueries.headOption.map { head =>
             nodes.foreach{ nodeId =>
               graphCordinator ! ShardingEnvelope(nodeId, EdgeQuery(nodeId, head.nodeType, head.nodeProperties, head.edgeType, head.edgeProperties, nodeEntityResponseMapper))

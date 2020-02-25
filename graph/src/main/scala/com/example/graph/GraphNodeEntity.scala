@@ -103,10 +103,6 @@ object GraphNodeEntity {
   private def commandHandler(context: ActorContext[GraphNodeCommand[GraphNodeCommandReply]]):
   (GraphNodeState, GraphNodeCommand[GraphNodeCommandReply]) => ReplyEffect[GraphNodeEvent, GraphNodeState] = {
     (state, command) =>
-      println("command " * 10)
-
-      println(command)
-
       logger.info(s"$state")
 
       state match {
@@ -153,11 +149,6 @@ object GraphNodeEntity {
               Effect.reply(nodeQuery.replyTo)(NodeQueryResult(createdState.nodeId, createdState.nodeType, createdState.properties))
 
             case checkEdge: EdgeQuery =>
-              println(checkEdge)
-              println(createdState)
-              println(checkEdge.nodeType.forall(_ == createdState.nodeType))
-              println(checkEdge.nodeProperties.toSet.subsetOf(createdState.properties.toSet))
-
               if(checkEdge.nodeType.forall(_ == createdState.nodeType)) {
                 if(checkEdge.nodeProperties.toSet.subsetOf(createdState.properties.toSet)) {
                   val targetEdges: Edges =
@@ -184,8 +175,6 @@ object GraphNodeEntity {
   }
 
   private def eventHandler(context: ActorContext[GraphNodeCommand[GraphNodeCommandReply]]): (GraphNodeState, GraphNodeEvent) => GraphNodeState = { (state, event) =>
-    println("state" * 10)
-    println(state)
     state match {
       case _: EmptyGraphNodeState =>
         event match {
@@ -223,10 +212,7 @@ object GraphNodeEntity {
 
             val newTargetEdges = createdState.edgesWithProperties.getOrElse(edgeType, Map.empty) + (nodeId -> newEdge)
 
-            println(newTargetEdges)
-
             val newNodeEdges = edgeType +: createdState.edges.getOrElse(nodeId, List.empty)
-            println(newNodeEdges)
             createdState.copy(
               edgesWithProperties = createdState.edgesWithProperties + (edgeType -> newTargetEdges),
               edges = createdState.edges + (nodeId -> newNodeEdges)

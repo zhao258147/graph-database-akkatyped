@@ -48,7 +48,6 @@ class GraphActorSupervisor(
         Behaviors.same
 
       case saga: StartEdgeSagaActor =>
-        println("StartEdgeSagaActor")
         val sagaActor = context.spawn(edgeCreationBehaviour, UUID.randomUUID().toString)
 
         sagaActor ! EdgeCreation(saga.nodeId, saga.targetNodeId, saga.edgeType, saga.properties, saga.replyTo)

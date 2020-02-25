@@ -49,9 +49,6 @@ class GraphScenario extends Simulation {
   def edgeReq(session: Session) = {
     val nodeId = session("targetNodeId").as[String]
     val edgeType = session("edgeType").as[String]
-    println("x"*100)
-    println(nodeId)
-    println(edgeType)
     write(UpdateEdgeReq(nodeId, edgeType, "TO"))
   }
 

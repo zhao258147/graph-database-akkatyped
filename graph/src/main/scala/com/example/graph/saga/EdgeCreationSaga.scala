@@ -33,8 +33,6 @@ object EdgeCreationSaga {
     ): Behavior[EdgeCreationCommand] =
       Behaviors.receiveMessagePartial {
         case NodeEntityResponse(GraphNodeCommandSuccess(nodeId, _)) =>
-          println("NodeEntityResponse " * 10)
-          println(nodeId)
           if(nodeId == edgeCreationReq.fromNodeId) {
             if(targetNodeRespReceived){
               replyTo ! EdgeCreationReplySuccessful()
@@ -48,8 +46,6 @@ object EdgeCreationSaga {
           } else Behaviors.stopped
 
         case NodeEntityResponse(GraphNodeCommandFailed(nodeId, _)) =>
-          println("GraphNodeCommandFailed " * 10)
-          println(nodeId)
           //TODO, compensation action, need to have new edge command, add edges in sequence
 //          if(nodeId == edgeCreationReq.fromNodeId) {
 //            if(targetNodeRespReceived) {

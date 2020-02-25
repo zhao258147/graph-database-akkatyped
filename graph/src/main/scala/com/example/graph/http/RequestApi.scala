@@ -99,7 +99,6 @@ object RequestApi extends Json4sSupport {
           } ~
           post {
             entity(as[UpdateNodeReq]) { update =>
-              println(update)
               complete(
                 graphCordinator.ask[GraphNodeCommandReply] { ref =>
                   ShardingEnvelope(nodeId, UpdateNodeCommand(nodeId, update.properties, ref))
