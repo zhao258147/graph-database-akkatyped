@@ -42,6 +42,15 @@ object RequestApi extends Json4sSupport {
           }
         } ~
         pathPrefix("query") {
+          pathPrefix(Segment) { queryId =>
+            entity(as[GraphQueryReq]) { query =>
+              complete(
+                graphActorSupervisor.ask[GraphQueryReply] { ref =>
+                  StartGraphQueryActor(query.queries, ref, Some(queryId))
+                }
+              )
+            }
+          } ~
           post {
             entity(as[GraphQueryReq]) { query =>
               complete(

@@ -19,10 +19,12 @@ object GraphQueryActor {
   case class NodesInformationFailed(error: String) extends GraphQueryCommand
   case class GraphQuery(graphQueries: List[QueryReq], replyTo: ActorRef[GraphQueryReply]) extends GraphQueryCommand
   case class WrappedNodeEntityResponse(nodeEntityResponse: GraphNodeCommandReply) extends GraphQueryCommand
+  case class CheckProgress(response: ActorRef[GraphQueryReply]) extends GraphQueryCommand
 
   sealed trait GraphQueryReply
   case class GraphQueryReplySuccess(list: Set[Seq[TargetNodeId]]) extends GraphQueryReply
   case class GraphQueryReplyFailed(error: String) extends GraphQueryReply
+  case class GraphQueryReplyProgress(allCollectedPairs: Seq[Set[PairNodes]], curNodes: Set[TargetNodeId]) extends GraphQueryReply
 
   case class PairNodes(fromNodeId: TargetNodeId, toNodeId: TargetNodeId)
   case class CollectedNodes(list: Seq[Set[PairNodes]])
@@ -56,6 +58,7 @@ object GraphQueryActor {
     def queryInfo(allCollectedPairs: Seq[Set[PairNodes]], graph: List[QueryReq], replyTo: ActorRef[GraphQueryReply], curQuery: QueryReq, curNodes: Set[TargetNodeId] = Set.empty, nextNodes: Set[PairNodes] = Set.empty): Behavior[GraphQueryCommand] =
       Behaviors.receiveMessagePartial {
         case WrappedNodeEntityResponse(EdgeQueryResult(nodeId, edges: Set[Edge], nodeResult)) =>
+          Thread.sleep(1000)
           val collectedNodes = curNodes + nodeId
           val toIds = edges.map(_.direction.nodeId)
           val toCollect = toIds.map(PairNodes(nodeId, _)) ++ nextNodes
@@ -99,6 +102,10 @@ object GraphQueryActor {
             //wait for all nodes to be returned for the current graph query
             queryInfo(updatedAllCollectedPairs, graph, replyTo, curQuery, collectedNodes, toCollect)
           }
+
+        case CheckProgress(replyTo) =>
+          replyTo ! GraphQueryReplyProgress(allCollectedPairs, curNodes)
+          Behaviors.same
       }
 
     def nodesInfo(graphQueries: List[QueryReq], replyTo: ActorRef[GraphQueryReply]): Behavior[GraphQueryCommand] =

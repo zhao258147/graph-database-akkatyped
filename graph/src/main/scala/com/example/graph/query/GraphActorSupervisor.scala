@@ -8,15 +8,18 @@ import akka.cluster.sharding.typed.ShardingEnvelope
 import com.datastax.driver.core.Session
 import com.example.graph.GraphNodeEntity.{EdgeDirection, EdgeProperties, EdgeType, GraphNodeCommand, GraphNodeCommandReply, NodeId, TargetNodeId}
 import com.example.graph.http.Requests.QueryReq
-import com.example.graph.query.GraphQueryActor.{GraphQuery, GraphQueryReply}
-import com.example.graph.query.GraphActorSupervisor.{GraphQuerySupervisorCommand, StartEdgeSagaActor, StartGraphQueryActor}
+import com.example.graph.query.GraphQueryActor.{CheckProgress, GraphQuery, GraphQueryReply}
+import com.example.graph.query.GraphActorSupervisor.{GraphQueryProgress, GraphQuerySupervisorCommand, StartEdgeSagaActor, StartGraphQueryActor}
 import com.example.graph.saga.EdgeCreationSaga
 import com.example.graph.saga.EdgeCreationSaga.{EdgeCreation, EdgeCreationReply}
 
+import scala.collection.mutable
+
 object GraphActorSupervisor {
   sealed trait GraphQuerySupervisorCommand
-  case class StartGraphQueryActor(graph: List[QueryReq], replyTo: ActorRef[GraphQueryReply]) extends GraphQuerySupervisorCommand
+  case class StartGraphQueryActor(graph: List[QueryReq], replyTo: ActorRef[GraphQueryReply], queryId: Option[String] = None) extends GraphQuerySupervisorCommand
   case class StartEdgeSagaActor(nodeId: NodeId, targetNodeId: TargetNodeId, edgeType: EdgeType, properties: EdgeProperties, replyTo: ActorRef[EdgeCreationReply]) extends GraphQuerySupervisorCommand
+  case class GraphQueryProgress(queryId: String, replyTo: ActorRef[GraphQueryReply]) extends GraphQuerySupervisorCommand
 
   def apply(graphCordinator: ActorRef[ShardingEnvelope[GraphNodeCommand[GraphNodeCommandReply]]])
     (implicit session: Session): Behavior[GraphQuerySupervisorCommand] =
@@ -38,11 +41,14 @@ class GraphActorSupervisor(
       .supervise(EdgeCreationSaga.EdgeCreationBehaviour(graphCordinator))
       .onFailure[IllegalStateException](SupervisorStrategy.resume)
 
+  val children = mutable.Map.empty[String, ActorRef[GraphQueryActor.GraphQueryCommand]]
+
   override def onMessage(msg: GraphQuerySupervisorCommand): Behavior[GraphQuerySupervisorCommand] = {
     msg match {
       case query: StartGraphQueryActor =>
-        val queryActor = context.spawn(queryActorBehaviour, UUID.randomUUID().toString)
-
+        val queryId = query.queryId.getOrElse(UUID.randomUUID().toString)
+        val queryActor = context.spawn(queryActorBehaviour, queryId)
+        children.put(queryId, queryActor)
         queryActor ! GraphQuery(query.graph, query.replyTo)
 
         Behaviors.same
@@ -52,6 +58,10 @@ class GraphActorSupervisor(
 
         sagaActor ! EdgeCreation(saga.nodeId, saga.targetNodeId, saga.edgeType, saga.properties, saga.replyTo)
 
+        Behaviors.same
+
+      case progress: GraphQueryProgress =>
+        children.get(progress.queryId).map(_ ! CheckProgress(progress.replyTo))
         Behaviors.same
     }
   }
