@@ -57,7 +57,6 @@ object GraphNodeEntity {
 
   case class NodeQuery(nodeId: String, replyTo: ActorRef[GraphNodeCommandReply]) extends GraphNodeCommand[GraphNodeCommandReply]
   case class EdgeQuery(nodeId: String, nodeType: Option[NodeType], nodeProperties: NodeProperties, edgeType: Option[EdgeType], edgeProperties: EdgeProperties, replyTo: ActorRef[GraphNodeCommandReply]) extends GraphNodeCommand[GraphNodeCommandReply]
-  case class ShortestPath(nodeId: String, nodeType: Option[NodeType], nodeProperties: NodeProperties, edgeType: Option[EdgeType], edgeProperties: EdgeProperties, replyTo: ActorRef[GraphNodeCommandReply]) extends GraphNodeCommand[GraphNodeCommandReply]
 
   @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
   @JsonSubTypes(
@@ -95,14 +94,17 @@ object GraphNodeEntity {
     nodeId: NodeId,
     nodeType: NodeType,
     properties: NodeProperties,
-    edgesWithProperties: EdgesWithProperties,
-    edges: Map[TargetNodeId, Seq[EdgeType]],
-    fromNodes: Set[NodeId]
+    outEdges: EdgesWithProperties,
+    inEdges: EdgesWithProperties
   ) extends GraphNodeState
 
   private def commandHandler(context: ActorContext[GraphNodeCommand[GraphNodeCommandReply]]):
   (GraphNodeState, GraphNodeCommand[GraphNodeCommandReply]) => ReplyEffect[GraphNodeEvent, GraphNodeState] = {
     (state, command) =>
+      println("command " * 10)
+
+      println(command)
+
       logger.info(s"$state")
 
       state match {
@@ -127,7 +129,7 @@ object GraphNodeEntity {
 
             case removeEdge: RemoveEdgeCommand =>
               val existingEdge = for {
-                targetEdges <- createdState.edgesWithProperties.get(removeEdge.edgeType)
+                targetEdges <- createdState.outEdges.get(removeEdge.edgeType)
                 edges <- targetEdges.get(removeEdge.targetNodeId)
               } yield edges
 
@@ -149,11 +151,16 @@ object GraphNodeEntity {
               Effect.reply(nodeQuery.replyTo)(NodeQueryResult(createdState.nodeId, createdState.nodeType, createdState.properties))
 
             case checkEdge: EdgeQuery =>
+              println(checkEdge)
+              println(createdState)
+              println(checkEdge.nodeType.forall(_ == createdState.nodeType))
+              println(checkEdge.nodeProperties.toSet.subsetOf(createdState.properties.toSet))
+
               if(checkEdge.nodeType.forall(_ == createdState.nodeType)) {
                 if(checkEdge.nodeProperties.toSet.subsetOf(createdState.properties.toSet)) {
                   val targetEdges: Edges =
                     checkEdge.edgeType.map{ edgeTypeVal =>
-                      createdState.edgesWithProperties.getOrElse(edgeTypeVal, Map.empty)
+                      createdState.outEdges.getOrElse(edgeTypeVal, Map.empty)
                     }.getOrElse(Map.empty)
 
                   val edges: Set[Edge] = targetEdges.values.foldLeft(Set.empty[Edge]){
@@ -175,6 +182,8 @@ object GraphNodeEntity {
   }
 
   private def eventHandler(context: ActorContext[GraphNodeCommand[GraphNodeCommandReply]]): (GraphNodeState, GraphNodeEvent) => GraphNodeState = { (state, event) =>
+    println("state" * 10)
+    println(state)
     state match {
       case _: EmptyGraphNodeState =>
         event match {
@@ -183,9 +192,8 @@ object GraphNodeEntity {
               nodeId = created.id,
               properties = created.properties,
               nodeType = created.nodeType,
-              edgesWithProperties = Map.empty,
-              edges = Map.empty,
-              fromNodes = Set.empty
+              outEdges = Map.empty,
+              inEdges = Map.empty
             )
           case _ =>
             state
@@ -200,27 +208,33 @@ object GraphNodeEntity {
             )
 
           case removeEdge: GraphNodeEdgeRemoved =>
-            val targetEdges = createdState.edgesWithProperties.getOrElse(removeEdge.edgeType, Map.empty)
+            val targetEdges = createdState.outEdges.getOrElse(removeEdge.edgeType, Map.empty)
             val newEdges = targetEdges - removeEdge.targetNodeId
             if(newEdges.isEmpty)
-              createdState.copy(edgesWithProperties = createdState.edgesWithProperties - removeEdge.edgeType)
+              createdState.copy(outEdges = createdState.outEdges - removeEdge.edgeType)
             else
-              createdState.copy(edgesWithProperties = createdState.edgesWithProperties + (removeEdge.edgeType -> newEdges))
+              createdState.copy(outEdges = createdState.outEdges + (removeEdge.edgeType -> newEdges))
 
           case GraphNodeEdgeUpdated(edgeType, To(nodeId), properties) =>
             val newEdge = Edge(edgeType, To(nodeId), properties)
 
-            val newTargetEdges = createdState.edgesWithProperties.getOrElse(edgeType, Map.empty) + (nodeId -> newEdge)
+            val newTargetEdges = createdState.outEdges.getOrElse(edgeType, Map.empty) + (nodeId -> newEdge)
 
-            val newNodeEdges = edgeType +: createdState.edges.getOrElse(nodeId, List.empty)
+            println(newTargetEdges)
+
             createdState.copy(
-              edgesWithProperties = createdState.edgesWithProperties + (edgeType -> newTargetEdges),
-              edges = createdState.edges + (nodeId -> newNodeEdges)
+              outEdges = createdState.outEdges + (edgeType -> newTargetEdges),
             )
 
           case GraphNodeEdgeUpdated(edgeType, From(nodeId), properties) =>
+            val newEdge = Edge(edgeType, From(nodeId), properties)
+
+            val newTargetEdges = createdState.inEdges.getOrElse(edgeType, Map.empty) + (nodeId -> newEdge)
+
+            println(newTargetEdges)
+
             createdState.copy(
-              fromNodes = createdState.fromNodes + nodeId,
+              inEdges = createdState.outEdges + (edgeType -> newTargetEdges),
             )
         }
     }

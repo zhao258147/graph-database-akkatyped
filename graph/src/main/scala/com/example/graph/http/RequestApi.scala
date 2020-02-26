@@ -91,11 +91,26 @@ object RequestApi extends Json4sSupport {
             } ~
             post {
               entity(as[UpdateEdgeReq]) { updateEdgeReq =>
-                complete(
-                  graphActorSupervisor.ask[EdgeCreationReply] { ref =>
-                    StartEdgeSagaActor(nodeId, updateEdgeReq.targetNodeId, updateEdgeReq.edgeType, updateEdgeReq.properties, ref)
-                  }
-                )
+                updateEdgeReq.direction.toLowerCase match {
+                  case "to" =>
+                    complete(
+                      graphCordinator.ask[GraphNodeCommandReply] { ref =>
+                        ShardingEnvelope(nodeId, UpdateEdgeCommand(updateEdgeReq.targetNodeId, updateEdgeReq.edgeType, To(updateEdgeReq.targetNodeId), updateEdgeReq.properties, ref))
+                      }
+                    )
+                  case "from" =>
+                    complete(
+                      graphCordinator.ask[GraphNodeCommandReply] { ref =>
+                        ShardingEnvelope(nodeId, UpdateEdgeCommand(updateEdgeReq.targetNodeId, updateEdgeReq.edgeType, From(updateEdgeReq.targetNodeId), updateEdgeReq.properties, ref))
+                      }
+                    )
+                  case _ =>
+                    complete(
+                      graphActorSupervisor.ask[EdgeCreationReply] { ref =>
+                        StartEdgeSagaActor(nodeId, updateEdgeReq.targetNodeId, updateEdgeReq.edgeType, updateEdgeReq.properties, ref)
+                      }
+                    )
+                }
               }
             }
           } ~
