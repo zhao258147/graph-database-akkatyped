@@ -36,7 +36,7 @@ object GraphNodeEntity {
   case class From(nodeId: String) extends EdgeDirection
 
 
-  case class Edge(edgeType: EdgeType, direction: EdgeDirection, properties: EdgeProperties)
+  case class Edge(edgeType: EdgeType, direction: EdgeDirection, properties: EdgeProperties, weight: Int = 0)
 
   @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
   @JsonSubTypes(
@@ -158,21 +158,18 @@ object GraphNodeEntity {
 
               if(checkEdge.nodeType.forall(_ == createdState.nodeType)) {
                 if(checkEdge.nodeProperties.toSet.subsetOf(createdState.properties.toSet)) {
-                  val targetEdges: Edges =
-                    checkEdge.edgeType.map{ edgeTypeVal =>
-                      createdState.outEdges.getOrElse(edgeTypeVal, Map.empty)
-                    }.getOrElse(Map.empty)
+                  val targetEdges: Edges = createdState.outEdges.values.flatten.toMap
 
-                  val edges: Set[Edge] = targetEdges.values.foldLeft(Set.empty[Edge]){
+                  val edges: List[Edge] = targetEdges.values.foldLeft(List.empty[Edge]){
                     case (acc, edge: Edge) if checkEdge.edgeProperties.toSet.subsetOf(edge.properties.toSet) =>
                       edge.direction match {
                         case to: To =>
-                          acc + edge
+                          edge +: acc
                         case _ => acc
                       }
-                  }
+                  }.sortWith(_.weight > _.weight)
 
-                  Effect.reply(checkEdge.replyTo)(EdgeQueryResult(createdState.nodeId, edges, true))
+                  Effect.reply(checkEdge.replyTo)(EdgeQueryResult(createdState.nodeId, edges.toSet, true))
                 } else Effect.reply(checkEdge.replyTo)(EdgeQueryResult(createdState.nodeId, Set.empty, false))
               } else
                 Effect.reply(checkEdge.replyTo)(EdgeQueryResult(createdState.nodeId, Set.empty, false))
@@ -216,7 +213,8 @@ object GraphNodeEntity {
               createdState.copy(outEdges = createdState.outEdges + (removeEdge.edgeType -> newEdges))
 
           case GraphNodeEdgeUpdated(edgeType, To(nodeId), properties) =>
-            val newEdge = Edge(edgeType, To(nodeId), properties)
+            val weight = createdState.outEdges.get(edgeType).flatMap(_.get(nodeId).map(_.weight)).getOrElse(0)
+            val newEdge = Edge(edgeType, To(nodeId), properties, weight + 1)
 
             val newTargetEdges = createdState.outEdges.getOrElse(edgeType, Map.empty) + (nodeId -> newEdge)
 

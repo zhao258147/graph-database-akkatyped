@@ -1,0 +1,16 @@
+nodeId|targetNodeId|type|distance|orbitalperiod
+Moon|Earth|orbit|0.38|27
+Phobos|Mars|orbit|0.1|0.4
+deimos|Mars|orbit|0.23|2
+Io|Jupiter|orbit|0.4|45
+Europa|Jupiter|orbit|0.7|56
+Ganymede|Jupiter|orbit|0.7|9
+Callisto|Jupiter|orbit|2|17
+Mimas|Saturn|orbit|0.23|1
+Enceladus|Saturn|orbit|1|1.2
+Tethys|Saturn|orbit|1.3|1.5
+Titan|Saturn|orbit|2|16
+Ariel|Uranus|orbit|1.4|2
+Umbriel|Uranus|orbit|4|5
+Triton|Neptune|orbit|1|2
+Charon|Pluto|orbit|5|7

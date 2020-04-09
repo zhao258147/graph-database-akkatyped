@@ -34,7 +34,6 @@ class GraphScenario extends Simulation {
 
   val nodeScn = scenario("create nodes")
     .feed(nodeIdFeeder)
-    .feed(nodeTypeFeeder)
     .exec(
       http("create node")
         .put("/api/graph")
@@ -49,7 +48,20 @@ class GraphScenario extends Simulation {
   def edgeReq(session: Session) = {
     val nodeId = session("targetNodeId").as[String]
     val edgeType = session("edgeType").as[String]
-    write(UpdateEdgeReq(nodeId, edgeType, "TO"))
+    println("x"*100)
+    println(nodeId)
+    println(edgeType)
+    write(
+      UpdateEdgeReq(
+        nodeId,
+        edgeType,
+        "TO",
+        Map(
+          "distance" -> session("distance").as[String],
+          "orbitalperiod" -> session("orbitalperiod").as[String]
+        )
+      )
+    )
   }
 
   val edgeScn = scenario("create edges")
@@ -63,12 +75,40 @@ class GraphScenario extends Simulation {
         .check(status.is(200))
     )
 
+  val solarNodesFeeder = separatedValues("solarnodes.csv", '|') //csv("solarnodes.csv")
+  val solarEdgesFeeder = separatedValues("solaredges.csv", '|')
 
-  setUp(
-    nodeScn.inject(rampUsers(10) during (10 seconds))
-  ).protocols(httpConf)
+  val solarNodesScn = scenario("create nodes")
+    .feed(solarNodesFeeder)
+    .exec(
+      http("create node")
+        .put("/api/graph")
+        .body(new StringBody(session => write(CreateNodeReq(session("nodeId").as[String], session("nodetype").as[String], Map("mass" -> session("mass").as[String])))))
+        .check(status.is(200))
+    )
+
+  val solarEdgesScn = scenario("create nodes")
+    .feed(solarEdgesFeeder)
+    .exec(
+      http("create an edge")
+        .post("/api/graph/${nodeId}/edge")
+        .body(new StringBody(session => edgeReq(session)))
+        .check(status.is(200))
+    )
+
+//  setUp(
+//    nodeScn.inject(rampUsers(10) during (10 seconds))
+//  ).protocols(httpConf)
 
 //  setUp(
 //    edgeScn.inject(rampUsers(20) during (10 seconds))
 //  ).protocols(httpConf)
+
+//  setUp(
+//    solarNodesScn.inject(rampUsers(18) during (10 seconds))
+//  ).protocols(httpConf)
+
+  setUp(
+    solarEdgesScn.inject(rampUsers(8) during (10 seconds))
+  ).protocols(httpConf)
 }
