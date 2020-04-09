@@ -11,7 +11,7 @@ import com.example.graph.GraphNodeEntity._
 import com.example.graph.http.Requests._
 import com.example.graph.query.GraphQueryActor.GraphQueryReply
 import com.example.graph.query.GraphActorSupervisor
-import com.example.graph.query.GraphActorSupervisor.{StartEdgeSagaActor, StartGraphQueryActor}
+import com.example.graph.query.GraphActorSupervisor.{GraphQueryProgress, StartEdgeSagaActor, StartGraphQueryActor}
 import com.example.graph.saga.EdgeCreationSaga.EdgeCreationReply
 import de.heikoseeberger.akkahttpjson4s.Json4sSupport
 import org.json4s.{DefaultFormats, Formats, native}
@@ -43,10 +43,10 @@ object RequestApi extends Json4sSupport {
         } ~
         pathPrefix("query") {
           pathPrefix(Segment) { queryId =>
-            entity(as[GraphQueryReq]) { query =>
+            get {
               complete(
                 graphActorSupervisor.ask[GraphQueryReply] { ref =>
-                  StartGraphQueryActor(query.queries, ref, Some(queryId))
+                  GraphQueryProgress(queryId, ref)
                 }
               )
             }

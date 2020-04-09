@@ -1,0 +1,238 @@
+  <!-- START SIGMA IMPORTS -->
+  <script src="../src/sigma.core.js"></script>
+  <script src="../src/conrad.js"></script>
+  <script src="../src/utils/sigma.utils.js"></script>
+  <script src="../src/utils/sigma.polyfills.js"></script>
+  <script src="../src/sigma.settings.js"></script>
+  <script src="../src/classes/sigma.classes.dispatcher.js"></script>
+  <script src="../src/classes/sigma.classes.configurable.js"></script>
+  <script src="../src/classes/sigma.classes.graph.js"></script>
+  <script src="../src/classes/sigma.classes.camera.js"></script>
+  <script src="../src/classes/sigma.classes.quad.js"></script>
+  <script src="../src/classes/sigma.classes.edgequad.js"></script>
+  <script src="../src/captors/sigma.captors.mouse.js"></script>
+  <script src="../src/captors/sigma.captors.touch.js"></script>
+  <script src="../src/renderers/sigma.renderers.canvas.js"></script>
+  <script src="../src/renderers/sigma.renderers.webgl.js"></script>
+  <script src="../src/renderers/sigma.renderers.svg.js"></script>
+  <script src="../src/renderers/sigma.renderers.def.js"></script>
+  <script src="../src/renderers/webgl/sigma.webgl.nodes.def.js"></script>
+  <script src="../src/renderers/webgl/sigma.webgl.nodes.fast.js"></script>
+  <script src="../src/renderers/webgl/sigma.webgl.edges.def.js"></script>
+  <script src="../src/renderers/webgl/sigma.webgl.edges.fast.js"></script>
+  <script src="../src/renderers/webgl/sigma.webgl.edges.arrow.js"></script>
+  <script src="../src/renderers/canvas/sigma.canvas.labels.def.js"></script>
+  <script src="../src/renderers/canvas/sigma.canvas.hovers.def.js"></script>
+  <script src="../src/renderers/canvas/sigma.canvas.nodes.def.js"></script>
+  <script src="../src/renderers/canvas/sigma.canvas.edges.def.js"></script>
+  <script src="../src/renderers/canvas/sigma.canvas.edges.curve.js"></script>
+  <script src="../src/renderers/canvas/sigma.canvas.edges.arrow.js"></script>
+  <script src="../src/renderers/canvas/sigma.canvas.edges.curvedArrow.js"></script>
+  <script src="../src/renderers/canvas/sigma.canvas.edgehovers.def.js"></script>
+  <script src="../src/renderers/canvas/sigma.canvas.edgehovers.curve.js"></script>
+  <script src="../src/renderers/canvas/sigma.canvas.edgehovers.arrow.js"></script>
+  <script src="../src/renderers/canvas/sigma.canvas.edgehovers.curvedArrow.js"></script>
+  <script src="../src/renderers/canvas/sigma.canvas.extremities.def.js"></script>
+  <script src="../src/renderers/svg/sigma.svg.utils.js"></script>
+  <script src="../src/renderers/svg/sigma.svg.nodes.def.js"></script>
+  <script src="../src/renderers/svg/sigma.svg.edges.def.js"></script>
+  <script src="../src/renderers/svg/sigma.svg.edges.curve.js"></script>
+  <script src="../src/renderers/svg/sigma.svg.labels.def.js"></script>
+  <script src="../src/renderers/svg/sigma.svg.hovers.def.js"></script>
+  <script src="../src/middlewares/sigma.middlewares.rescale.js"></script>
+  <script src="../src/middlewares/sigma.middlewares.copy.js"></script>
+  <script src="../src/misc/sigma.misc.animation.js"></script>
+  <script src="../src/misc/sigma.misc.bindEvents.js"></script>
+  <script src="../src/misc/sigma.misc.bindDOMEvents.js"></script>
+  <script src="../src/misc/sigma.misc.drawHovers.js"></script>
+  <!-- END SIGMA IMPORTS -->
+  <div id="container">
+    <style>
+    #graph-container {
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      position: absolute;
+    }
+  </style>
+  <div id="demo">
+    <h2></h2>
+  </div>
+  <div id="graph-container"></div>
+</div>
+<script>
+  console.log("hello");
+  sigma.classes.graph.addMethod('neighbors', function(nodeId) {
+    var k,
+    neighbors = {},
+    index = this.allNeighborsIndex[nodeId] || {};
+
+    for (k in index)
+      neighbors[k] = this.nodesIndex[k];
+
+    return neighbors;
+  });
+
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
+    if (this.readyState == 4 && this.status == 200) {
+      var resp = JSON.parse(this.responseText);
+      console.log(resp);
+      var nodes = resp.result[0].nodes;
+
+        /**
+         * This example is a copy of "basic.html", but with event bindings after.
+         * Open your browser's console to see the "click", "overNode" and
+         * "outNode" events logged.
+         */
+         var i,
+         s,
+         N = 20,
+         E = 200,
+         g = {
+          nodes: [],
+          edges: []
+        };
+
+        var k, l;
+        i = 0
+        for(k = 0; k < 7; k++){
+          for(l = 0; l < 7; l++){
+
+            g.nodes.push({
+              id: "node" + i,
+              label: "node" + i,
+              x: k/7,
+              y: l/7,
+              size: 0.1,
+              color: '#000',
+              hits: 1
+            });
+            i ++;
+          }
+        }
+
+                  
+
+        for (i = 0; i < nodes.length; i++) {
+          var inNodes = false;
+          g.nodes.forEach(element => {
+            if(element.id == nodes[i].nodeId) {
+              element.size+=0.1;
+              element.hits+=1;
+              inNodes = true;
+            }
+          });
+
+          var inReferrers = false;
+          g.nodes.forEach(element => {
+            if(element.id == nodes[i].referrer) {
+              element.size+=0.1;
+              element.hits+=1;
+              inReferrers = true;
+            }
+          });
+
+          var inEdges = false;
+          g.edges.forEach(element => {
+            if(element.id == nodes[i].referrer + nodes[i].nodeId) {
+              element.size+=0.1;
+              element.connections+=1;
+              inEdges = true;
+            }
+          });
+
+          if (inReferrers && inNodes && !inEdges) {
+            g.edges.push({
+              id: nodes[i].referrer + nodes[i].nodeId,
+              source: nodes[i].referrer ,
+              target: nodes[i].nodeId,
+              size: 0.1,
+              type: 'curve',
+              color: '#000',
+              hover_color: '#f00',
+              connections: 1
+            });
+          }
+        }
+
+        s = new sigma({
+          graph: g,
+          renderer: {
+            container: document.getElementById('graph-container'),
+            type: 'canvas'
+          },
+          settings: {
+            doubleClickEnabled: false,
+            minEdgeSize: 0.5,
+            maxEdgeSize: 4,
+            enableEdgeHovering: true,
+            edgeHoverColor: 'edge',
+            defaultEdgeHoverColor: '#000',
+            edgeHoverSizeRatio: 1,
+            edgeHoverExtremities: true,
+          }
+        });
+
+        s.bind('clickNode', function(e) {
+          var nodeId = e.data.node.id,
+          toKeep = s.graph.neighbors(nodeId);
+          toKeep[nodeId] = e.data.node;
+
+          s.graph.nodes().forEach(function(n) {
+            if (toKeep[n.id])
+              n.color = n.originalColor;
+            else
+              n.color = '#eee';
+          });
+
+          s.graph.edges().forEach(function(e) {
+            if (toKeep[e.source] && toKeep[e.target])
+              e.color = e.originalColor;
+            else
+              e.color = '#eee';
+          });
+
+          console.log(s.graph.edges())
+
+          // Since the data has been modified, we need to
+          // call the refresh method to make the colors
+          // update effective.
+          s.refresh();
+        });
+
+        // When the stage is clicked, we just color each
+        // node and edge with its original color.
+        s.bind('clickStage', function(e) {
+          console.log("clickStage")
+          s.graph.nodes().forEach(function(n) {
+            n.color = n.originalColor;
+          });
+
+          s.graph.edges().forEach(function(e) {
+            e.color = e.originalColor;
+          });
+
+          // Same as in the previous event:
+          s.refresh();
+        });
+
+        s.bind('overNode', function(e) {
+          var hits = e.data.node.hits;
+
+          document.getElementById("demo").innerHTML = "views " + hits;
+        });
+        s.bind('overEdge', function(e) {
+          var connections = e.data.edge.connections;
+          document.getElementById("demo").innerHTML = "connections " + connections;
+        });
+
+        document.getElementById("demo").innerHTML = this.responseText;
+      }
+    };
+    xhttp.open("GET", "http://localhost:8081/api/person/person1/query/referrers", true);
+    xhttp.send();
+
+
+  </script>

@@ -28,6 +28,7 @@ object ShortestPathQueryActor {
 
 
 
+
     Behaviors.stopped
   }
 
