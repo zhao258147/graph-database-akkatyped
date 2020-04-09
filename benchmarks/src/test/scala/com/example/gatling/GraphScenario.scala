@@ -104,11 +104,11 @@ class GraphScenario extends Simulation {
 //    edgeScn.inject(rampUsers(20) during (10 seconds))
 //  ).protocols(httpConf)
 
-//  setUp(
-//    solarNodesScn.inject(rampUsers(18) during (10 seconds))
-//  ).protocols(httpConf)
-
   setUp(
-    solarEdgesScn.inject(rampUsers(8) during (10 seconds))
+    solarNodesScn.inject(rampUsers(18) during (10 seconds))
   ).protocols(httpConf)
+
+//  setUp(
+//    solarEdgesScn.inject(rampUsers(8) during (10 seconds))
+//  ).protocols(httpConf)
 }

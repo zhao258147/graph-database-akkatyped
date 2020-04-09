@@ -9,7 +9,8 @@ import com.datastax.driver.core.Session
 import com.example.graph.GraphNodeEntity.{EdgeDirection, EdgeProperties, EdgeType, GraphNodeCommand, GraphNodeCommandReply, NodeId, TargetNodeId}
 import com.example.graph.http.Requests.QueryReq
 import com.example.graph.query.GraphQueryActor.{CheckProgress, GraphQuery, GraphQueryReply}
-import com.example.graph.query.GraphActorSupervisor.{GraphQueryProgress, GraphQuerySupervisorCommand, StartEdgeSagaActor, StartGraphQueryActor}
+import com.example.graph.query.GraphActorSupervisor._
+import com.example.graph.query.WeightQueryActor.{WeightQuery, WeightQueryReply}
 import com.example.graph.saga.EdgeCreationSaga
 import com.example.graph.saga.EdgeCreationSaga.{EdgeCreation, EdgeCreationReply}
 
@@ -20,6 +21,7 @@ object GraphActorSupervisor {
   case class StartGraphQueryActor(graph: List[QueryReq], replyTo: ActorRef[GraphQueryReply], queryId: Option[String] = None) extends GraphQuerySupervisorCommand
   case class StartEdgeSagaActor(nodeId: NodeId, targetNodeId: TargetNodeId, edgeType: EdgeType, properties: EdgeProperties, replyTo: ActorRef[EdgeCreationReply]) extends GraphQuerySupervisorCommand
   case class GraphQueryProgress(queryId: String, replyTo: ActorRef[GraphQueryReply]) extends GraphQuerySupervisorCommand
+  case class StartWeightQuery(replyTo: ActorRef[WeightQueryReply]) extends GraphQuerySupervisorCommand
 
   def apply(graphCordinator: ActorRef[ShardingEnvelope[GraphNodeCommand[GraphNodeCommandReply]]])
     (implicit session: Session): Behavior[GraphQuerySupervisorCommand] =
@@ -62,6 +64,12 @@ class GraphActorSupervisor(
 
       case progress: GraphQueryProgress =>
         children.get(progress.queryId).map(_ ! CheckProgress(progress.replyTo))
+        Behaviors.same
+
+      case weightQuery: StartWeightQuery =>
+        val weightQueryACtor = context.spawn(WeightQueryActor.weightQueryBehaviour(graphCordinator), UUID.randomUUID().toString)
+        weightQueryACtor ! WeightQuery(WeightQueryActor.planets, weightQuery.replyTo)
+
         Behaviors.same
     }
   }

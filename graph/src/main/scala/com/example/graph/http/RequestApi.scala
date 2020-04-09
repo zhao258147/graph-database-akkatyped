@@ -11,7 +11,8 @@ import com.example.graph.GraphNodeEntity._
 import com.example.graph.http.Requests._
 import com.example.graph.query.GraphQueryActor.GraphQueryReply
 import com.example.graph.query.GraphActorSupervisor
-import com.example.graph.query.GraphActorSupervisor.{GraphQueryProgress, StartEdgeSagaActor, StartGraphQueryActor}
+import com.example.graph.query.GraphActorSupervisor.{GraphQueryProgress, StartEdgeSagaActor, StartGraphQueryActor, StartWeightQuery}
+import com.example.graph.query.WeightQueryActor.WeightQueryReply
 import com.example.graph.saga.EdgeCreationSaga.EdgeCreationReply
 import de.heikoseeberger.akkahttpjson4s.Json4sSupport
 import org.json4s.{DefaultFormats, Formats, native}
@@ -62,6 +63,15 @@ object RequestApi extends Json4sSupport {
           }
         } ~
         pathPrefix(Segment) { nodeId =>
+          pathPrefix("edges") {
+            get {
+              complete(
+                graphActorSupervisor.ask[WeightQueryReply] { ref =>
+                  StartWeightQuery(ref)
+                }
+              )
+            }
+          } ~
           pathPrefix("edge") {
             get {
               parameterMap { params =>
