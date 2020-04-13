@@ -38,10 +38,10 @@ class GraphActorSupervisor(
       .supervise(GraphQueryActor.GraphQueryBehaviour(graphCordinator))
       .onFailure[IllegalStateException](SupervisorStrategy.resume)
 
-  val edgeCreationBehaviour =
-    Behaviors
-      .supervise(EdgeCreationSaga.EdgeCreationBehaviour(graphCordinator))
-      .onFailure[IllegalStateException](SupervisorStrategy.resume)
+//  val edgeCreationBehaviour =
+//    Behaviors
+//      .supervise(EdgeCreationSaga.EdgeCreationBehaviour(graphCordinator))
+//      .onFailure[IllegalStateException](SupervisorStrategy.resume)
 
   val children = mutable.Map.empty[String, ActorRef[GraphQueryActor.GraphQueryCommand]]
 
@@ -56,9 +56,9 @@ class GraphActorSupervisor(
         Behaviors.same
 
       case saga: StartEdgeSagaActor =>
-        val sagaActor = context.spawn(edgeCreationBehaviour, UUID.randomUUID().toString)
+//        val sagaActor = context.spawn(edgeCreationBehaviour, UUID.randomUUID().toString)
 
-        sagaActor ! EdgeCreation(saga.nodeId, saga.targetNodeId, saga.edgeType, saga.properties, saga.replyTo)
+//        sagaActor ! EdgeCreation(saga.nodeId, saga.targetNodeId, saga.edgeType, saga.properties, saga.replyTo)
 
         Behaviors.same
 

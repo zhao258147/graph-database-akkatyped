@@ -14,7 +14,7 @@ object WeightQueryActor {
   sealed trait WeightQueryReply
   case class Weights(collected: Set[EdgeQueryResult]) extends WeightQueryReply
 
-  val planets = Set("Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto", "Ceres", "Eris", "Makemake", "Haumea", "Sedna", "Quaoar", "Orcus", "OR10")
+  val planets = Set("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "S", "T")
 
   def weightQueryBehaviour(
     graphCordinator: ActorRef[ShardingEnvelope[GraphNodeCommand[GraphNodeCommandReply]]],
@@ -38,7 +38,7 @@ object WeightQueryActor {
       Behaviors.receiveMessagePartial {
         case WeightQuery(nodeIds, replyTo) =>
           nodeIds.foreach{ node =>
-            graphCordinator ! ShardingEnvelope(node, EdgeQuery(node, None, Map.empty, None, Map.empty, nodeEntityResponseMapper))
+            graphCordinator ! ShardingEnvelope(node, EdgeQuery(node, None, Map.empty, Set.empty, Map.empty, nodeEntityResponseMapper))
           }
           collectResp(Set.empty, replyTo)
       }

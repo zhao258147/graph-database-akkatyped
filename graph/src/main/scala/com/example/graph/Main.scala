@@ -27,7 +27,7 @@ object Main extends App {
   import akka.actor.typed.scaladsl.adapter._
 
   val conf = ConfigFactory.load()
-  implicit val system: ActorSystem = ActorSystem("ClusterSystem", conf)
+  implicit val system: ActorSystem = ActorSystem("RayDemo", conf)
   implicit val materializer: ActorMaterializer = ActorMaterializer()
   implicit val ec: ExecutionContextExecutor = system.dispatcher
 
