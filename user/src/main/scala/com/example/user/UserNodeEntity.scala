@@ -2,6 +2,7 @@ package com.example.user
 
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
+import akka.cluster.sharding.typed.scaladsl.EntityTypeKey
 import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, ReplyEffect, RetentionCriteria}
 import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
@@ -42,6 +43,7 @@ object UserNodeEntity {
   case class UserCommandSuccess(userId: UserId) extends UserReply
   case class UserRequestSuccess(userId: UserId, recommended: Seq[String]) extends UserReply
   case class UserCommandFailed(userId: UserId, error: String) extends UserReply
+  case class UserInfo(userId: UserId, state: CreatedUserState) extends UserReply
 
   @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
   @JsonSubTypes(
@@ -102,7 +104,7 @@ object UserNodeEntity {
 
             case retrieve: UserRetrievalCommand =>
               println(state)
-              Effect.noReply
+              Effect.reply(retrieve.replyTo)(UserInfo(state.userId, state))
 
           }
       }
@@ -141,13 +143,22 @@ object UserNodeEntity {
                     LabelWeight(labelWeight.weight + weight, labelWeight.tag)
                   }.getOrElse(labelWeight)
               }
+
+              val newLabels = req.tags.foldLeft(Set.empty[LabelWeight]){
+                case (acc, (tag, weight)) =>
+                  if(created.labels.exists(_.tag == tag)) acc
+                  else acc + LabelWeight(weight, tag)
+              }
+
               created.copy(
-                labels = labels,
+                labels = labels ++ newLabels,
                 viewed = req.nodeId +: created.viewed
               )
           }
       }
   }
+
+  val TypeKey = EntityTypeKey[UserCommand[UserReply]]("user")
 
   def userEntityBehaviour(persistenceId: PersistenceId): Behavior[UserCommand[UserReply]] = Behaviors.setup { context =>
     EventSourcedBehavior.withEnforcedReplies(

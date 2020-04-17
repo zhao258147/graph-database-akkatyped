@@ -3,7 +3,8 @@ CREATE KEYSPACE graph WITH replication = {'class': 'SimpleStrategy', 'replicatio
 CREATE TABLE graph.nodes (
     type text,
     id text,
-    properties map<text, text>,
+    tags map<varchar, int>,
+    properties map<varchar, varchar>,
     PRIMARY KEY (type, id)
 ) WITH CLUSTERING ORDER BY (id ASC)
     AND bloom_filter_fp_chance = 0.01

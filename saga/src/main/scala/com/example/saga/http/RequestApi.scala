@@ -30,7 +30,7 @@ object RequestApi extends Json4sSupport {
           entity(as[NodeReferralReq]) { referralReq: NodeReferralReq =>
             complete(
               system.ask[SagaActorReply] { ref =>
-                NodeReferralCommand(referralReq.nodeId, referralReq.targetNodeId, referralReq.userId, referralReq.userLabels, ref)
+                NodeReferralCommand(referralReq.nodeId, referralReq.userId, referralReq.userLabels, ref)
               }
             )
           }

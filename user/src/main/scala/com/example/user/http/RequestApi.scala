@@ -25,22 +25,32 @@ object RequestApi extends Json4sSupport {
     userCordinator: ActorRef[ShardingEnvelope[UserCommand[UserReply]]],
   )(implicit system: akka.actor.typed.ActorSystem[Nothing], ec: ExecutionContext, session: Session): Route = {
     pathPrefix("api") {
-      pathPrefix("graph") {
-        pathPrefix("query") {
-          post {
-            entity(as[NodeVisitReq]) { req =>
-              complete(
-                userCordinator.ask[UserReply] { ref: ActorRef[UserReply] =>
-                  ShardingEnvelope(
-                    req.userId,
-                    NodeVisitRequest(req.userId, req.nodeId, req.tags, req.recommended, ref)
-                  )
-                }
-              )
-            }
+      pathPrefix("query") {
+        post {
+          entity(as[NodeVisitReq]) { req =>
+            complete(
+              userCordinator.ask[UserReply] { ref: ActorRef[UserReply] =>
+                ShardingEnvelope(
+                  req.userId,
+                  NodeVisitRequest(req.userId, req.nodeId, req.tags, req.recommended, ref)
+                )
+              }
+            )
           }
-        } ~
-        pathPrefix("user") {
+        }
+      } ~
+      pathPrefix("user") {
+        pathPrefix(Segment) { userId =>
+          get {
+            complete(
+              userCordinator.ask[UserReply] { ref: ActorRef[UserReply] =>
+                ShardingEnvelope(
+                  userId,
+                  UserRetrievalCommand(userId, ref)
+                )
+              }
+            )
+          } ~
           post {
             entity(as[UpdateUserReq]) { req =>
               complete(

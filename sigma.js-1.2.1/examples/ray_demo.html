@@ -108,21 +108,23 @@
           g.nodes.push({
             id: nodes[i].nodeId,
             label: nodes[i].nodeId,
-            size: nodes[i].clicks,
+            size: 1,
             color: '#000',
             hits: 1,
-            x: nodes[i].uniqueVisitors,
-            y: 0 - nodes[i].clicks
+            x: nodes[i].properties.x * 10,
+            y: nodes[i].properties.y * 10,
+            tags: nodes[i].tags
+
           });
 
           var a = 0;
-          for(a = 0; a < nodes[i].edgeResult.length; a++){
-          console.log(nodes[i].edgeResult[a].direction.nodeId)
+          for(a = 0; a < nodes[i].edges.length; a++){
+            console.log(nodes[i].edges[a].direction.nodeId)
             g.edges.push({
-              id: nodes[i].nodeId + "-" + nodes[i].edgeResult[a].direction.nodeId + " " + nodes[i].edgeResult[a].weight,
+              id: nodes[i].nodeId + "-" + nodes[i].edges[a].direction.nodeId + " " + nodes[i].edges[a].weight,
               source: nodes[i].nodeId ,
-              target: nodes[i].edgeResult[a].direction.nodeId,
-              size: nodes[i].edgeResult[a].weight,
+              target: nodes[i].edges[a].direction.nodeId,
+              size: nodes[i].edges[a].weight,
               type: 'curve',
               color: '#000',
               hover_color: '#f00',
@@ -236,8 +238,15 @@
 
         s.bind('overNode', function(e) {
           var node = e.data.node;
+          console.log(node.tags)
 
-          document.getElementById("demo").innerHTML =  node.id + "(" + node.x + "," + node.y + ")";
+          var tags = "";
+          var keys = Object.keys(node.tags);
+          keys.forEach(key=>{
+            tags = tags+ " " + key + '|' + node.tags[key];
+          });
+
+          document.getElementById("demo").innerHTML =  node.id + "(tags: " + tags + ")";
         });
         s.bind('overEdge', function(e) {
           

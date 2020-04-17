@@ -39,15 +39,13 @@ object Main extends App {
 
   val settings = ClusterShardingSettings(typedSystem)
 
-  val TypeKey = EntityTypeKey[UserCommand[UserReply]]("user")
-
   val shardRegion =
-    sharding.init(Entity(TypeKey)(
+    sharding.init(Entity(UserNodeEntity.TypeKey)(
       createBehavior = entityContext =>
         UserNodeEntity.userEntityBehaviour(
           PersistenceId(entityContext.entityTypeKey.name, entityContext.entityId)
         )
-    ))
+    ).withRole("user"))
 
   val route: Route = RequestApi.route(shardRegion)
 

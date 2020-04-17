@@ -6,15 +6,17 @@ import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
 import akka.cluster.sharding.typed.{ClusterShardingSettings, ShardingEnvelope}
 import akka.cluster.sharding.typed.scaladsl.{ClusterSharding, Entity, EntityTypeKey}
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.server.Route
+import akka.management.scaladsl.AkkaManagement
 import akka.persistence.typed.PersistenceId
 import akka.stream.ActorMaterializer
+import com.datastax.driver.core.{Cluster, Session}
 import com.example.graph.GraphNodeEntity
 import com.example.graph.GraphNodeEntity.{GraphNodeCommand, GraphNodeCommandReply, NodeId, TargetNodeId}
-import com.example.graph.config.GraphConfig
-import com.example.personalization.Main.{conf, typedSystem}
 import com.example.saga.SagaActor.{NodeReferral, SagaActorReply}
 import com.example.saga.config.SagaConfig
-import com.example.user.Main.sharding
+import com.example.saga.http.{CORSHandler, RequestApi}
 import com.example.user.UserNodeEntity
 import com.example.user.UserNodeEntity.{UserCommand, UserId, UserReply}
 import com.typesafe.config.ConfigFactory
@@ -30,32 +32,32 @@ object Main extends App {
   import akka.actor.typed.scaladsl.adapter._
 
   implicit val typedSystem: ActorSystem[SagaCommand] = ActorSystem(Main(), "RayDemo")
+  implicit val classSystem = typedSystem.toClassic
+  implicit val materializer: ActorMaterializer = ActorMaterializer()
 
-//  implicit val system: ActorSystem = ActorSystem("RayDemo", conf)
-//  implicit val materializer: ActorMaterializer = ActorMaterializer()
-//  implicit val ec: ExecutionContextExecutor = typedSystem.dispatcher
+  implicit val ec: ExecutionContextExecutor = typedSystem.executionContext
+  AkkaManagement(classSystem).start()
 
-
+  implicit val session: Session = Cluster.builder
+    .addContactPoint(config.cassandraConfig.contactPoints)
+    .withPort(config.cassandraConfig.port)
+    .build
+    .connect()
 
   val sharding = ClusterSharding(typedSystem)
 
   val settings = ClusterShardingSettings(typedSystem)
 
-  val GraphTypeKey = EntityTypeKey[GraphNodeCommand[GraphNodeCommandReply]]("graph")
-
   val graphShardRegion: ActorRef[ShardingEnvelope[GraphNodeCommand[GraphNodeCommandReply]]] =
-    sharding.init(Entity(GraphTypeKey)(
+    sharding.init(Entity(GraphNodeEntity.TypeKey)(
       createBehavior = entityContext =>
         GraphNodeEntity.nodeEntityBehaviour(
           PersistenceId(entityContext.entityTypeKey.name, entityContext.entityId)
         )
     ).withRole("graph"))
 
-
-  val UserTypeKey = EntityTypeKey[UserCommand[UserReply]]("user")
-
   val userShardRegion: ActorRef[ShardingEnvelope[UserCommand[UserReply]]] =
-    sharding.init(Entity(UserTypeKey)(
+    sharding.init(Entity(UserNodeEntity.TypeKey)(
       createBehavior = entityContext =>
         UserNodeEntity.userEntityBehaviour(
           PersistenceId(entityContext.entityTypeKey.name, entityContext.entityId)
@@ -64,15 +66,25 @@ object Main extends App {
 
 
   sealed trait SagaCommand
-  case class NodeReferralCommand(nodeId: NodeId, targetNodeId: TargetNodeId, userId: UserId, userLabels: Set[String], replyTo: ActorRef[SagaActorReply]) extends SagaCommand
+  case class NodeReferralCommand(nodeId: NodeId, userId: UserId, userLabels: Set[String], replyTo: ActorRef[SagaActorReply]) extends SagaCommand
 
   def apply(): Behavior[SagaCommand] = Behaviors.setup{ context =>
     Behaviors.receiveMessage{
       case referral: NodeReferralCommand =>
         val sagaActor = context.spawn(SagaActor(graphShardRegion, userShardRegion), UUID.randomUUID().toString)
-        sagaActor ! NodeReferral(referral.nodeId, referral.targetNodeId, referral.userId, referral.userLabels, referral.replyTo)
+        sagaActor ! NodeReferral(referral.nodeId, referral.userId, referral.userLabels, referral.replyTo)
         Behaviors.same
     }
   }
+
+  val route: Route = RequestApi.route(graphShardRegion)
+
+  private val cors = new CORSHandler {}
+
+  Http().bindAndHandle(
+    cors.corsHandler(route),
+    config.http.interface,
+    config.http.port
+  )
 
 }

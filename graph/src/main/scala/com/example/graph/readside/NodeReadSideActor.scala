@@ -15,8 +15,9 @@ import com.example.graph.config.ReadSideConfig
 import scala.collection.immutable
 import scala.concurrent.{ExecutionContextExecutor, Future}
 
-object ReadSideActor {
+object NodeReadSideActor {
   val NodeUpdateEventName = "nodeupdate"
+  val ClickUpdateEventName = "clickupdate"
   case class ReadSideActorOffset(offset: Offset)
 
   def ReadSideActorBehaviour(
@@ -27,15 +28,18 @@ object ReadSideActor {
 
     val queries = PersistenceQuery(system).readJournalFor[CassandraReadJournal](CassandraReadJournal.Identifier)
 
-    val nodeInsertStatement = session.prepare(s"INSERT INTO graph.nodes(type, id, properties) VALUES (?, ?, ?)")
+    val nodeInsertStatement = session.prepare(s"INSERT INTO graph.nodes(type, id, tags, properties) VALUES (?, ?, ?, ?)")
     val nodeInsertBinder =
       (e: EventEnvelope, statement: PreparedStatement) => {
+        import scala.collection.JavaConverters.mapAsJavaMap
         e.event match {
           case elemToInsert: GraphNodeUpdated =>
+            println(elemToInsert)
             statement.bind(
               elemToInsert.nodeType,
               elemToInsert.id,
-              if(elemToInsert.properties.isEmpty) null else elemToInsert.properties
+              if(elemToInsert.tags.isEmpty) null else mapAsJavaMap(elemToInsert.tags),
+              if(elemToInsert.properties.isEmpty) null else mapAsJavaMap(elemToInsert.properties)
             )
           case _ =>
             throw new RuntimeException("wrong message")
@@ -74,6 +78,7 @@ object ReadSideActor {
 
     offsetQuery.foreach {
       case Some(o) =>
+        println(o)
         context.self ! ReadSideActorOffset(o)
       case None =>
         context.self ! ReadSideActorOffset(NoOffset)
@@ -83,6 +88,7 @@ object ReadSideActor {
     val waiting: Behavior[ReadSideActorOffset] =
       Behaviors.receiveMessage {
         case ReadSideActorOffset(offset) =>
+          println("x" * 100)
           val createdStream: Source[EventEnvelope, NotUsed] = queries.eventsByTag(NodeUpdateEventName, offset)
           createdStream
             .via(saveNodeFlow)

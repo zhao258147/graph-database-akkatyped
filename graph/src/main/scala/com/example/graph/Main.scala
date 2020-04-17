@@ -8,6 +8,7 @@ import akka.cluster.sharding.typed.scaladsl.{ClusterSharding, Entity, EntityType
 import akka.cluster.typed.{ClusterSingleton, SingletonActor}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Route
+import akka.management.scaladsl.AkkaManagement
 import akka.persistence.typed.PersistenceId
 import akka.stream.ActorMaterializer
 import com.datastax.driver.core.{Cluster, Session}
@@ -16,7 +17,7 @@ import com.example.graph.GraphNodeEntity.{GraphNodeCommand, GraphNodeCommandRepl
 import com.example.graph.config.GraphConfig
 import com.example.graph.http.{CORSHandler, RequestApi}
 import com.example.graph.query.GraphActorSupervisor
-import com.example.graph.readside.ReadSideActor
+import com.example.graph.readside.NodeReadSideActor
 import com.typesafe.config.ConfigFactory
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader._
@@ -45,15 +46,13 @@ object Main extends App {
 
   val settings = ClusterShardingSettings(typedSystem)
 
-  val TypeKey = EntityTypeKey[GraphNodeCommand[GraphNodeCommandReply]]("graph")
-
   val shardRegion =
-    sharding.init(Entity(TypeKey)(
+    sharding.init(Entity(GraphNodeEntity.TypeKey)(
       createBehavior = entityContext =>
         GraphNodeEntity.nodeEntityBehaviour(
           PersistenceId(entityContext.entityTypeKey.name, entityContext.entityId)
         )
-      )
+      ).withRole("graph")
     )
 
   val graphQuerySupervisor = system.spawn(GraphActorSupervisor.apply(shardRegion), "graphQuerySupervisor")
@@ -70,5 +69,5 @@ object Main extends App {
 
   val singletonManager = ClusterSingleton(typedSystem)
   val readSideActor = singletonManager.init(
-    SingletonActor(Behaviors.supervise(ReadSideActor.ReadSideActorBehaviour(config.readSideConfig)).onFailure[Exception](SupervisorStrategy.restart), "ReadSide"))
+    SingletonActor(Behaviors.supervise(NodeReadSideActor.ReadSideActorBehaviour(config.readSideConfig)).onFailure[Exception](SupervisorStrategy.restart), "ReadSide"))
 }

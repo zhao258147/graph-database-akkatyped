@@ -2,14 +2,16 @@ package com.example.graph
 
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
+import akka.cluster.sharding.typed.scaladsl.EntityTypeKey
 import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, ReplyEffect, RetentionCriteria}
 import com.example.graph.GraphNodeEntity.GraphNodeCommandReply
-import com.example.graph.readside.ReadSideActor
+import com.example.graph.readside.NodeReadSideActor
 import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
 import org.slf4j.LoggerFactory
 
 object GraphNodeEntity {
+  //TODO: change all primitive types to value classes, so we have types for strings
   type NodeType = String
   type Tag = String
   type Weight = Int
@@ -73,19 +75,21 @@ object GraphNodeEntity {
   }
   case class GraphNodeCommandSuccess(nodeId: NodeId, message: String = "") extends GraphNodeCommandReply
   case class GraphNodeCommandFailed(nodeId: NodeId, error: String) extends GraphNodeCommandReply
-  case class EdgeQueryResult(nodeId: NodeId, tags: Tags, edgeResult: Set[Edge], nodeResult: Boolean, clicks: Int = 0, uniqueVisitors: Int = 0) extends GraphNodeCommandReply
-  case class NodeQueryResult(nodeId: NodeId, nodeType: NodeType, properties: NodeProperties) extends GraphNodeCommandReply
+  case class EdgeQueryResult(nodeId: NodeId, nodeType: NodeType, tags: Tags, edgeResult: Set[Edge], nodeResult: Boolean, clicks: Int = 0, uniqueVisitors: Int = 0) extends GraphNodeCommandReply
+  case class NodeQueryResult(nodeId: NodeId, nodeType: NodeType, properties: NodeProperties, tags: Tags, edges: Set[Edge]) extends GraphNodeCommandReply
 
   @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
   @JsonSubTypes(
     Array(
       new JsonSubTypes.Type(value = classOf[GraphNodeEdgeRemoved], name = "GraphNodeEdgeRemoved"),
       new JsonSubTypes.Type(value = classOf[GraphNodeUpdated], name = "GraphNodeUpdated"),
+      new JsonSubTypes.Type(value = classOf[GraphNodeClickUpdated], name = "GraphNodeClickUpdated"),
       new JsonSubTypes.Type(value = classOf[GraphNodeEdgeUpdated], name = "GraphNodeEdgeUpdated")))
   sealed trait GraphNodeEvent
   case class GraphNodeUpdated(id: NodeId, nodeType: NodeType, tags: Tags, properties: NodeProperties) extends GraphNodeEvent
   case class GraphNodeEdgeRemoved(targetNodeId: TargetNodeId, edgeType: EdgeType) extends  GraphNodeEvent
   case class GraphNodeEdgeUpdated(edgeType: EdgeType, direction: EdgeDirection, properties: EdgeProperties, userId: String) extends GraphNodeEvent
+  case class GraphNodeClickUpdated(ts: Long, clicks: Int) extends GraphNodeEvent
 
   @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
   @JsonSubTypes(
@@ -102,7 +106,9 @@ object GraphNodeEntity {
     inEdges: EdgesWithProperties,
     tags: Tags,
     uniqueVisitors: Set[String] = Set.empty,
-    clicks: Weight = 0
+    clicks: Weight = 0,
+    previousClicks: Int = 0,
+    previousClickCommit: Long = System.currentTimeMillis()
   ) extends GraphNodeState
 
   private def commandHandler(context: ActorContext[GraphNodeCommand[GraphNodeCommandReply]]):
@@ -150,12 +156,21 @@ object GraphNodeEntity {
               }
 
             case updateEdge: UpdateEdgeCommand =>
-              Effect
-                .persist(GraphNodeEdgeUpdated(updateEdge.edgeType, updateEdge.direction, updateEdge.properties, updateEdge.userId))
-                .thenReply(updateEdge.replyTo)(_ => GraphNodeCommandSuccess(updateEdge.nodeId))
+              val evt = GraphNodeEdgeUpdated(updateEdge.edgeType, updateEdge.direction, updateEdge.properties, updateEdge.userId)
+              val ts = System.currentTimeMillis()
+              val incrementalClicks = createdState.clicks - createdState.previousClicks
+              if(ts - createdState.previousClickCommit > 60000 || incrementalClicks > 10)
+                Effect
+                  .persist(
+                    evt,
+                    GraphNodeClickUpdated(ts, incrementalClicks)
+                  )
+                  .thenReply(updateEdge.replyTo)(_ => GraphNodeCommandSuccess(updateEdge.nodeId))
+              else Effect.persist(evt).thenReply(updateEdge.replyTo)(_ => GraphNodeCommandSuccess(updateEdge.nodeId))
+
 
             case nodeQuery: NodeQuery =>
-              Effect.reply(nodeQuery.replyTo)(NodeQueryResult(createdState.nodeId, createdState.nodeType, createdState.properties))
+              Effect.reply(nodeQuery.replyTo)(NodeQueryResult(createdState.nodeId, createdState.nodeType, createdState.properties, createdState.tags, createdState.outEdges.values.toList.flatMap(_.values).toSet))
 
             case checkEdge: EdgeQuery =>
               println(checkEdge)
@@ -187,10 +202,10 @@ object GraphNodeEntity {
                       acc
                   }
 
-                  Effect.reply(checkEdge.replyTo)(EdgeQueryResult(createdState.nodeId, createdState.tags, recommended, true, createdState.clicks, createdState.uniqueVisitors.size))
-                } else Effect.reply(checkEdge.replyTo)(EdgeQueryResult(createdState.nodeId, createdState.tags, Set.empty, false))
+                  Effect.reply(checkEdge.replyTo)(EdgeQueryResult(createdState.nodeId, createdState.nodeType, createdState.tags, recommended, true, createdState.clicks, createdState.uniqueVisitors.size))
+                } else Effect.reply(checkEdge.replyTo)(EdgeQueryResult(createdState.nodeId, createdState.nodeType, createdState.tags, Set.empty, false))
               } else
-                Effect.reply(checkEdge.replyTo)(EdgeQueryResult(createdState.nodeId, createdState.tags, Set.empty, false))
+                Effect.reply(checkEdge.replyTo)(EdgeQueryResult(createdState.nodeId, createdState.nodeType, createdState.tags, Set.empty, false))
 
           }
       }
@@ -255,9 +270,17 @@ object GraphNodeEntity {
             createdState.copy(
               inEdges = createdState.outEdges + (edgeType -> newTargetEdges),
             )
+
+          case GraphNodeClickUpdated(ts, _) =>
+            createdState.copy(
+              previousClicks = createdState.clicks,
+              previousClickCommit = ts
+            )
         }
     }
   }
+
+  val TypeKey = EntityTypeKey[GraphNodeCommand[GraphNodeCommandReply]]("graph")
 
   def nodeEntityBehaviour(persistenceId: PersistenceId): Behavior[GraphNodeCommand[GraphNodeCommandReply]] = Behaviors.setup { context =>
     EventSourcedBehavior.withEnforcedReplies(
@@ -268,7 +291,8 @@ object GraphNodeEntity {
     )
       .withRetention(RetentionCriteria.snapshotEvery(numberOfEvents = 20, keepNSnapshots = 2))
       .withTagger{
-        case _: GraphNodeUpdated => Set(ReadSideActor.NodeUpdateEventName)
+        case _: GraphNodeUpdated => Set(NodeReadSideActor.NodeUpdateEventName)
+        case _: GraphNodeClickUpdated => Set(NodeReadSideActor.ClickUpdateEventName)
         case _ => Set.empty
       }
   }

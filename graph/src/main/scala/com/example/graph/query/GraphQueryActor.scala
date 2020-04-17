@@ -57,7 +57,7 @@ object GraphQueryActor {
 
     def queryInfo(allCollectedPairs: Seq[Set[PairNodes]], graph: List[QueryReq], replyTo: ActorRef[GraphQueryReply], curQuery: QueryReq, curNodes: Set[TargetNodeId] = Set.empty, nextNodes: Set[PairNodes] = Set.empty): Behavior[GraphQueryCommand] =
       Behaviors.receiveMessagePartial {
-        case WrappedNodeEntityResponse(EdgeQueryResult(nodeId, tags, edges: Set[Edge], nodeResult, _, _)) =>
+        case WrappedNodeEntityResponse(EdgeQueryResult(nodeId, _, tags, edges: Set[Edge], nodeResult, _, _)) =>
           Thread.sleep(1000)
           val collectedNodes = curNodes + nodeId
           val toIds = edges.map(_.direction.nodeId)
@@ -135,9 +135,9 @@ object GraphQueryActor {
           } yield {
             val stmt = query.nodeType match {
               case Some(nodeType) =>
-                new SimpleStatement(s"SELECT * FROM graph.nodes WHERE type = '$nodeType'")
+                new SimpleStatement(s"SELECT id FROM graph.nodes WHERE type = '$nodeType'")
               case None =>
-                new SimpleStatement(s"SELECT * FROM graph.nodes")
+                new SimpleStatement(s"SELECT id FROM graph.nodes")
             }
 
             val nodes = CassandraSource(stmt)
