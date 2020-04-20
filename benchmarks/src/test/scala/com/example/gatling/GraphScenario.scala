@@ -2,12 +2,17 @@ package com.example.gatling
 
 import com.example.graph.GraphNodeEntity.{Tags, To}
 import com.example.graph.http.Requests.{CreateNodeReq, UpdateEdgeReq}
+import com.example.saga.SagaActor.NodeReferralReply
+import com.example.saga.http.Requests.{NodeReferralReq, NodeVisitReq}
+import com.example.user.UserNodeEntity.UserInfo
+import com.example.user.http.Requests.CreateUserReq
 import com.typesafe.config.ConfigFactory
 import io.gatling.core.Predef._
 import io.gatling.core.body.StringBody
 import io.gatling.core.session.Session
 import io.gatling.http.Predef._
 import org.json4s.jackson.Serialization.write
+import org.json4s.native.JsonMethods
 import org.json4s.{DefaultFormats, Formats, jackson, native}
 
 import scala.concurrent.duration._
@@ -31,17 +36,28 @@ class GraphScenario extends Simulation {
   val rand = new Random()
 
   val nodeIdFeeder = csv("nodeId.csv")
-  val nodeTypeFeeder = csv("nodetype.csv").random
-  val tagsFeeder = csv("tags.csv").random
-  val tagSeq = Seq(
+  val tagsFeeder = csv("tags.csv", '|').random
+
+  val randomTags = Seq(
+    "conversational messaging bot",
+    "messaging",
+    "mobile engagement",
+    "personalized mobile campaigns",
+    "Machine learning",
+    "point-of-sale transaction",
+    "guest frequency",
+    "Digital strategy",
+    "cloud communication",
+    "interactive voice response"
+  )
+
+  val companySeq = Seq(
     "huawei",
     "ericsson",
     "lenovo",
     "nokia",
     "zte",
     "google",
-    "JeffDean",
-    "Ren",
     "ChinaTelecom",
     "Qualcom",
     "ChinaUnicom",
@@ -52,6 +68,23 @@ class GraphScenario extends Simulation {
     "CICT"
   )
 
+  val speakerSeq = Seq(
+    "Ray",
+    "SpeakerA",
+    "SpeakerB",
+    "SpeakerC",
+    "SpeakerD",
+    "SpeakerE"
+  )
+
+  val audienceSeq = Seq(
+    "developer",
+    "sales",
+    "product manager",
+    "executive",
+    "user"
+  )
+
   def nodeReq(session: Session): CreateNodeReq = {
     val nodeId = session("nodeId").as[String]
     println(nodeId)
@@ -59,9 +92,10 @@ class GraphScenario extends Simulation {
     val y = nodeId.substring(3,4)
     println(s"($x, $y)")
     val nodetype = session("nodetype").as[String]
+    val tag = session("tag").as[String]
 
-    val tags = Seq(nodetype, tagSeq(rand.nextInt(15)), tagSeq(rand.nextInt(15)))
-    val tagMap = tags.map(_ -> (rand.nextInt(5) + 2)).toMap
+    val tags = Seq(nodetype, tag, companySeq(rand.nextInt(13)), randomTags(rand.nextInt(9)), speakerSeq(rand.nextInt(5)), audienceSeq(rand.nextInt(4)))
+    val tagMap = tags.map(_ -> (rand.nextInt(5) + 1)).toMap
 
     CreateNodeReq(
       nodeId,
@@ -73,7 +107,7 @@ class GraphScenario extends Simulation {
 
   val nodeScn = scenario("create nodes")
     .feed(nodeIdFeeder)
-    .feed(nodeTypeFeeder)
+    .feed(tagsFeeder)
     .exec(
       http("create node")
         .put("/api/graph")
@@ -81,10 +115,19 @@ class GraphScenario extends Simulation {
         .check(status.is(200))
     )
 
+  val userIdFeeder = csv("userIds.csv")
+  val userScn = scenario("create users")
+    .feed(userIdFeeder)
+    .exec(
+      http("create node")
+        .put("/api/user")
+        .body(new StringBody(session => write(CreateUserReq(session("userId").as[String], "user"))))
+        .check(status.is(200))
+    )
+
   val edgeTypeFeeder = csv("edgeType.csv").random
   val edgeNodeIdFeeder = csv("nodeId.csv").random
   val targetNodeIdFeeder = csv("targetNodeId.csv").random
-  val userIdFeeder = csv("userIds.csv").random
 
   def edgeReq(session: Session) = {
     val nodeId = session("nodeId").as[String]
@@ -119,11 +162,87 @@ class GraphScenario extends Simulation {
         .check(status.is(200))
     )
 
-  setUp(
-    nodeScn.inject(rampUsers(80) during (20 seconds))
-  ).protocols(httpConf)
+  def buildNodeVisitReq(session: Session): NodeVisitReq = {
+    val userInfoStr = session("userinfo").as[String]
+    val userInfo = JsonMethods.parse(userInfoStr).extract[UserInfo]
+
+    NodeVisitReq(
+      nodeId = session("nodeId").as[String],
+      targetNodeId = session("targetNodeId").as[String],
+      userId = session("userId").as[String],
+      userLabels = userInfo.state.labels.map(x => x.tag -> x.weight).toMap
+    )
+  }
+
+  def buildNodeReferralReq(session: Session): NodeReferralReq = {
+    val userInfoStr = session("userinfo").as[String]
+    val userInfo = JsonMethods.parse(userInfoStr).extract[UserInfo]
+
+    val nr = NodeReferralReq(
+      session("nodeId").as[String],
+      session("userId").as[String],
+      userInfo.state.labels.map(x => x.tag -> x.weight).toMap
+    )
+    println(nr)
+    nr
+  }
+
+  val startingNodeIdFeeder = csv("startingNodeId.csv").random
+  val vistorScn = scenario("visitor scn")
+    .feed(startingNodeIdFeeder.random)
+    .feed(userIdFeeder.random)
+    .repeat(10) {
+      exec(
+        http("user info")
+          .get("http://localhost:8082/api/user/${userId}")
+          .check(bodyString.saveAs("userinfo"))
+      )
+      .exec(
+        http("request")
+          .post("http://localhost:8083/api/request")
+          .body(new StringBody(session => write(buildNodeReferralReq(session))))
+          .check(bodyString.saveAs("requestResponse"))
+      )
+      .exec{ session =>
+        val requestResponseStr = session("requestResponse").as[String]
+        val resp: NodeReferralReply = JsonMethods.parse(requestResponseStr).extract[NodeReferralReply]
+        val selectFrom: Seq[String] = resp.recommended.map(_.direction.nodeId) ++ resp.relevant
+        val targetNode = selectFrom.drop(rand.nextInt(selectFrom.size - 1)).head
+        println("x"*100)
+        println(session("userId").as[String])
+
+        session.set("targetNodeId", targetNode)
+      }
+      .pause(1 seconds, 15 seconds)
+      .exec(
+        http("record")
+          .post("http://localhost:8083/api/record")
+          .body(new StringBody(session => write(buildNodeVisitReq(session))))
+          .check(bodyString.saveAs("visitResponse"))
+      )
+      .exec{ session =>
+        val targetNodeId = session("targetNodeId").as[String]
+
+        session.set("nodeId", targetNodeId)
+      }
+
+    }
+
+
 
 //  setUp(
-//    edgeScn.inject(rampUsers(150) during (10 seconds))
+//    nodeScn.inject(rampUsers(99) during (20 seconds))
 //  ).protocols(httpConf)
+
+//  val visitorConf = http.shareConnections.contentTypeHeader("application/json")
+//  setUp(
+//    vistorScn.inject(rampUsers(50) during (100 seconds))
+//  ).protocols(visitorConf)
+
+
+  val userUrl = "http://localhost:8082"
+  val userConf = http.baseUrl(userUrl).shareConnections.contentTypeHeader("application/json")
+  setUp(
+    userScn.inject(rampUsers(50) during (10 seconds))
+  ).protocols(userConf)
 }

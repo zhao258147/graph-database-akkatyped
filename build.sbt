@@ -59,14 +59,20 @@ val commonDependencies = Seq(
 
 lazy val `graph` = (project in file("graph"))
   .settings(Seq(
+    organization := "com.example",
     name := "graph",
     credentials in ThisBuild += Credentials(Path.userHome / ".lightbend" / "commercial.credentials"),
     resolvers in ThisBuild += "lightbend-commercial-maven" at "https://repo.lightbend.com/commercial-releases",
     version := "0.1-SNAPSHOT",
     scalaVersion := "2.12.8",
-    cinnamon in run := false,
+    cinnamon in run := true,
     dockerExposedPorts ++= Seq(9001, 9999, 2551),
     libraryDependencies ++= commonDependencies,
+    libraryDependencies ++= Seq(
+      Cinnamon.library.cinnamonAkkaTyped,
+      Cinnamon.library.cinnamonPrometheus,
+      Cinnamon.library.cinnamonPrometheusHttpServer
+    ),
     dependencyOverrides += "com.google.guava" % "guava" % "19.0",
     PB.targets in Compile := Seq(
       scalapb.gen() -> (sourceManaged in Compile).value
@@ -76,6 +82,7 @@ lazy val `graph` = (project in file("graph"))
 
 lazy val `user` = (project in file("user"))
   .settings(Seq(
+    organization := "com.example",
     name := "user",
     credentials in ThisBuild += Credentials(Path.userHome / ".lightbend" / "commercial.credentials"),
     resolvers in ThisBuild += "lightbend-commercial-maven" at "https://repo.lightbend.com/commercial-releases",
@@ -93,6 +100,7 @@ lazy val `user` = (project in file("user"))
 
 lazy val `saga` = (project in file("saga"))
   .settings(Seq(
+    organization := "com.example",
     name := "saga",
     credentials in ThisBuild += Credentials(Path.userHome / ".lightbend" / "commercial.credentials"),
     resolvers in ThisBuild += "lightbend-commercial-maven" at "https://repo.lightbend.com/commercial-releases",
@@ -123,4 +131,4 @@ val `benchmarks` = Project(id = "benchmarks",
       "com.typesafe.akka" %% "akka-actor" % "2.5.25"
     )
   )
-  .dependsOn(`graph`)
+  .dependsOn(`graph`, `user`, `saga`)

@@ -1,5 +1,5 @@
 addSbtPlugin("com.typesafe.sbt" % "sbt-native-packager" % "1.4.0")
-addSbtPlugin("com.lightbend.cinnamon" % "sbt-cinnamon" % "2.13.1")
+addSbtPlugin("com.lightbend.cinnamon" % "sbt-cinnamon" % "2.13.3")
 addSbtPlugin("com.thesamet" % "sbt-protoc" % "0.99.28")
 addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.7.3")
 

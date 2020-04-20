@@ -13,6 +13,8 @@ import com.example.graph.query.GraphQueryActor.GraphQueryReply
 import com.example.graph.query.GraphActorSupervisor
 import com.example.graph.query.GraphActorSupervisor.{GraphQueryProgress, StartEdgeSagaActor, StartGraphQueryActor, StartWeightQuery}
 import com.example.graph.query.WeightQueryActor.WeightQueryReply
+import com.example.graph.readside.ClickReadSideActor
+import com.example.graph.readside.ClickReadSideActor.{TrendingNodesCommand, TrendingNodesResponse}
 import com.example.graph.saga.EdgeCreationSaga.EdgeCreationReply
 import de.heikoseeberger.akkahttpjson4s.Json4sSupport
 import org.json4s.{DefaultFormats, Formats, native}
@@ -27,7 +29,8 @@ object RequestApi extends Json4sSupport {
 
   def route(
     graphCordinator: ActorRef[ShardingEnvelope[GraphNodeCommand[GraphNodeCommandReply]]],
-    graphActorSupervisor: ActorRef[GraphActorSupervisor.GraphQuerySupervisorCommand]
+    graphActorSupervisor: ActorRef[GraphActorSupervisor.GraphQuerySupervisorCommand],
+    clickReadSideActor: ActorRef[ClickReadSideActor.ClickStatCommands]
   )(implicit system: akka.actor.typed.ActorSystem[Nothing], ec: ExecutionContext, session: Session): Route = {
 
 
@@ -40,6 +43,17 @@ object RequestApi extends Json4sSupport {
                 ShardingEnvelope(createCommand.nodeId, CreateNodeCommand(createCommand.nodeId, createCommand.nodeType, createCommand.tags, createCommand.properties, ref))
               }
             )
+          }
+        } ~
+        pathPrefix("trending") {
+          post {
+            entity(as[TrendingNodesReq]) { query =>
+              complete(
+                clickReadSideActor.ask[TrendingNodesResponse] { ref =>
+                  TrendingNodesCommand(query.types, ref)
+                }
+              )
+            }
           }
         } ~
         pathPrefix("query") {
@@ -82,7 +96,17 @@ object RequestApi extends Json4sSupport {
                   case Some(edgeType) =>
                     complete(
                       graphCordinator.ask[GraphNodeCommandReply] { ref: ActorRef[GraphNodeCommandReply] =>
-                        ShardingEnvelope(nodeId, EdgeQuery(nodeId, params.get(nodeTypeParam), Map.empty, Set(edgeType), params - edgeTypeParam - nodeTypeParam, ref))
+                        ShardingEnvelope(
+                          nodeId,
+                          EdgeQuery(
+                            nodeId,
+                            params.get(nodeTypeParam),
+                            Map.empty,
+                            Set(edgeType),
+                            params - edgeTypeParam - nodeTypeParam,
+                            ref
+                          )
+                        )
                       }
                     )
                   case None =>
@@ -105,13 +129,35 @@ object RequestApi extends Json4sSupport {
                   case "to" =>
                     complete(
                       graphCordinator.ask[GraphNodeCommandReply] { ref =>
-                        ShardingEnvelope(nodeId, UpdateEdgeCommand(nodeId, updateEdgeReq.edgeType, To(updateEdgeReq.targetNodeId), updateEdgeReq.properties, updateEdgeReq.userId, ref))
+                        ShardingEnvelope(
+                          nodeId,
+                          UpdateEdgeCommand(
+                            nodeId,
+                            updateEdgeReq.edgeType,
+                            To(updateEdgeReq.targetNodeId),
+                            updateEdgeReq.properties,
+                            updateEdgeReq.userId,
+                            if(updateEdgeReq.userLabels.isEmpty) None else Some(updateEdgeReq.userLabels),
+                            ref
+                          )
+                        )
                       }
                     )
                   case "from" =>
                     complete(
                       graphCordinator.ask[GraphNodeCommandReply] { ref =>
-                        ShardingEnvelope(nodeId, UpdateEdgeCommand(nodeId, updateEdgeReq.edgeType, From(updateEdgeReq.targetNodeId), updateEdgeReq.properties, updateEdgeReq.userId, ref))
+                        ShardingEnvelope(
+                          nodeId,
+                          UpdateEdgeCommand(
+                            nodeId,
+                            updateEdgeReq.edgeType,
+                            From(updateEdgeReq.targetNodeId),
+                            updateEdgeReq.properties,
+                            updateEdgeReq.userId,
+                            if(updateEdgeReq.userLabels.isEmpty) None else Some(updateEdgeReq.userLabels),
+                            ref
+                          )
+                        )
                       }
                     )
                   case _ =>

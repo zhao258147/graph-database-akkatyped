@@ -1,17 +1,18 @@
-tag
-huawei
-ericsson
-lenovo
-nokia
-zte
-google
-JeffDean
-Ren
-ChinaTelecom
-Qualcom
-ChinaUnicom
-vivo
-ChinaMobile
-GSMA
-Oppo
-CICT
+nodetype,tag
+AI,Robotics
+AI,Smart
+AI,AIoT
+AI,Machine learning
+5G,5G Application
+5G,5G Messaging
+5G,5G IoT
+5G,5G Deployeement
+5G,Network
+5G,5G rollout
+Planet,climate
+Planet,Sustainable Development Goals
+Planet,SDG
+IndustryX,manufacturing
+IndustryX,Logistic
+IndustryX,Healthcare
+IndustryX,Utilities

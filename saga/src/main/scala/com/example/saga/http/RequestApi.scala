@@ -8,6 +8,7 @@ import akka.util.Timeout
 import com.datastax.driver.core.Session
 import com.example.graph.GraphNodeEntity.{GraphNodeCommand, GraphNodeCommandReply, To, UpdateEdgeCommand}
 import com.example.saga.Main.{NodeReferralCommand, SagaCommand}
+import com.example.saga.SagaActor
 import com.example.saga.SagaActor.SagaActorReply
 import com.example.saga.http.Requests._
 import de.heikoseeberger.akkahttpjson4s.Json4sSupport
@@ -41,7 +42,7 @@ object RequestApi extends Json4sSupport {
           entity(as[NodeVisitReq]) { updateEdgeReq =>
             complete(
               graphCordinator.ask[GraphNodeCommandReply] { ref =>
-                ShardingEnvelope(updateEdgeReq.nodeId, UpdateEdgeCommand(updateEdgeReq.nodeId, updateEdgeReq.edgeType, To(updateEdgeReq.targetNodeId), updateEdgeReq.properties, updateEdgeReq.userId, ref))
+                ShardingEnvelope(updateEdgeReq.nodeId, UpdateEdgeCommand(updateEdgeReq.nodeId, SagaActor.SagaEdgeType, To(updateEdgeReq.targetNodeId), updateEdgeReq.properties, updateEdgeReq.userId, Some(updateEdgeReq.userLabels), ref))
               }
             )
           }

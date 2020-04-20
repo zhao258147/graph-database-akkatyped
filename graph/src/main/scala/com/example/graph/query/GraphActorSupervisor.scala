@@ -68,7 +68,7 @@ class GraphActorSupervisor(
 
       case weightQuery: StartWeightQuery =>
         val weightQueryACtor = context.spawn(WeightQueryActor.weightQueryBehaviour(graphCordinator), UUID.randomUUID().toString)
-        weightQueryACtor ! WeightQuery(WeightQueryActor.planets, weightQuery.replyTo)
+        weightQueryACtor ! WeightQuery(WeightQueryActor.names, weightQuery.replyTo)
 
         Behaviors.same
     }

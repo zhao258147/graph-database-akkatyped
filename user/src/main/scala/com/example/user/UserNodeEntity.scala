@@ -26,7 +26,7 @@ object UserNodeEntity {
 
   case class CreateUserCommand(userId: UserId, userType: String, properties: Map[String, String], labels: Set[LabelWeight], replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
   case class UpdateUserCommand(userId: UserId, userType: String, properties: Map[String, String], labels: Set[LabelWeight], replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
-  case class NodeVisitRequest(userId: UserId, nodeId: String, tags: Map[String, Int], recommended: Seq[String], replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
+  case class NodeVisitRequest(userId: UserId, nodeId: String, tags: Map[String, Int], recommended: Seq[String], relevant: Seq[String], replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
   case class UserRetrievalCommand(userId: UserId, replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
 
   @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
@@ -41,7 +41,7 @@ object UserNodeEntity {
     val userId: UserId
   }
   case class UserCommandSuccess(userId: UserId) extends UserReply
-  case class UserRequestSuccess(userId: UserId, recommended: Seq[String]) extends UserReply
+  case class UserRequestSuccess(userId: UserId, recommended: Seq[String], relevant: Seq[String]) extends UserReply
   case class UserCommandFailed(userId: UserId, error: String) extends UserReply
   case class UserInfo(userId: UserId, state: CreatedUserState) extends UserReply
 
@@ -96,9 +96,10 @@ object UserNodeEntity {
                 .thenReply(update.replyTo)(_ => UserCommandSuccess(update.userId))
             case req: NodeVisitRequest =>
               val toRecommand = req.recommended.filterNot(state.viewed.contains)
+              val toRelate = req.relevant.filterNot(state.viewed.contains)
               Effect
                 .persist(UserRequest(req.nodeId, req.tags))
-                .thenReply(req.replyTo)(_ => UserRequestSuccess(req.userId, toRecommand))
+                .thenReply(req.replyTo)(_ => UserRequestSuccess(req.userId, toRecommand, toRelate))
             case cmd: CreateUserCommand =>
               Effect.reply(cmd.replyTo)(UserCommandFailed(cmd.userId, "User already exists"))
 

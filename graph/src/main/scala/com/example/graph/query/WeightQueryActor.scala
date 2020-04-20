@@ -14,7 +14,7 @@ object WeightQueryActor {
   sealed trait WeightQueryReply
   case class Weights(collected: Set[NodeQueryResult]) extends WeightQueryReply
 
-  val planets = Set(
+  val names = Set(
     "(0H0)",
     "(0H1)",
     "(0H2)",
@@ -94,7 +94,26 @@ object WeightQueryActor {
     "(7H6)",
     "(7H7)",
     "(7H8)",
-    "(7H9)"
+    "(7H9)",
+    "(8H0)",
+    "(8H1)",
+    "(8H2)",
+    "(8H3)",
+    "(8H4)",
+    "(8H5)",
+    "(8H6)",
+    "(8H7)",
+    "(8H8)",
+    "(8H9)",
+    "(9H0)",
+    "(9H1)",
+    "(9H2)",
+    "(9H3)",
+    "(9H4)",
+    "(9H5)",
+    "(9H6)",
+    "(9H7)",
+    "(9H8)"
   )
 
   def weightQueryBehaviour(
@@ -107,7 +126,7 @@ object WeightQueryActor {
       Behaviors.receiveMessagePartial {
         case WrappedNodeEntityResponse(rsp: NodeQueryResult) =>
           val cur = collected + rsp
-          if(cur.size == planets.size) {
+          if(cur.size == names.size) {
             replyTo ! Weights(cur)
             Behaviors.stopped
           } else collectResp(cur, replyTo)

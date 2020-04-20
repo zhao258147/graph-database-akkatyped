@@ -66,7 +66,7 @@ object Main extends App {
 
 
   sealed trait SagaCommand
-  case class NodeReferralCommand(nodeId: NodeId, userId: UserId, userLabels: Set[String], replyTo: ActorRef[SagaActorReply]) extends SagaCommand
+  case class NodeReferralCommand(nodeId: NodeId, userId: UserId, userLabels: Map[String, Int], replyTo: ActorRef[SagaActorReply]) extends SagaCommand
 
   def apply(): Behavior[SagaCommand] = Behaviors.setup{ context =>
     Behaviors.receiveMessage{

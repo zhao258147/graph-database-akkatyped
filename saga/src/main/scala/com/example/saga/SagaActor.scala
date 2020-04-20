@@ -7,7 +7,7 @@ import akka.stream.alpakka.cassandra.scaladsl.CassandraSource
 import akka.stream.scaladsl.Sink
 import akka.util.Timeout
 import com.datastax.driver.core.{Session, SimpleStatement}
-import com.example.graph.GraphNodeEntity.{EdgeQuery, EdgeQueryResult, GraphNodeCommand, GraphNodeCommandReply, NodeId}
+import com.example.graph.GraphNodeEntity.{Edge, EdgeQuery, EdgeQueryResult, GraphNodeCommand, GraphNodeCommandReply, NodeId, QueryRecommended, RecommendedResult}
 import com.example.user.UserNodeEntity._
 
 import scala.collection.JavaConverters._
@@ -15,14 +15,15 @@ import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
 object SagaActor {
+  val SagaEdgeType = "User"
   sealed trait SagaActorCommand
-  case class NodeReferral(nodeId: NodeId, userId: UserId, userLabels: Set[String], replyTo: ActorRef[SagaActorReply]) extends SagaActorCommand
+  case class NodeReferral(nodeId: NodeId, userId: UserId, userLabels: Map[String, Int], replyTo: ActorRef[SagaActorReply]) extends SagaActorCommand
   case class RelevantNodes(nodes: Seq[NodeQueryResult]) extends SagaActorCommand
   case class WrappedNodeEntityResponse(nodeEntityResponse: GraphNodeCommandReply) extends SagaActorCommand
   case class WrappedUserEntityResponse(userEntityResponse: UserReply) extends SagaActorCommand
 
   sealed trait SagaActorReply
-  case class NodeReferralReply(userId: UserId, recommended: Seq[String]) extends SagaActorReply
+  case class NodeReferralReply(userId: UserId, recommended: Seq[Edge], relevant: Seq[String]) extends SagaActorReply
 
   case class NodeQueryResult(nodeType: String, nodeId: String, tags: java.util.Map[String, Integer], properties: java.util.Map[String, String])
 
@@ -46,10 +47,10 @@ object SagaActor {
         case referral: NodeReferral =>
           graphShardRegion ! ShardingEnvelope(
             referral.nodeId,
-            EdgeQuery(
+            QueryRecommended(
               referral.nodeId,
-              None,
-              Map.empty,
+              referral.userId,
+              Set(SagaEdgeType),
               referral.userLabels,
               Map.empty,
               nodeEntityResponseMapper
@@ -58,7 +59,7 @@ object SagaActor {
           waitingForNodeReply(referral)
       }
 
-    def waitingForRelevantNodes(referral: NodeReferral, wrappedNodeReply: EdgeQueryResult): Behavior[SagaActorCommand] =
+    def waitingForRelevantNodes(referral: NodeReferral, wrappedNodeReply: RecommendedResult): Behavior[SagaActorCommand] =
       Behaviors.receiveMessagePartial {
         case RelevantNodes(nodes) =>
           userShardRegion ! ShardingEnvelope(
@@ -67,17 +68,17 @@ object SagaActor {
               referral.userId,
               referral.nodeId,
               wrappedNodeReply.tags,
-              wrappedNodeReply.edgeResult.map(_.direction.nodeId).toSeq ++ nodes.map(_.nodeId),
+              wrappedNodeReply.edgeResult.map(_.direction.nodeId),
+              nodes.map(_.nodeId),
               userEntityResponseMapper
             )
           )
-          waitingForUserReply(referral, wrappedNodeReply)
+          waitingForUserReply(referral, wrappedNodeReply, nodes)
       }
 
     def waitingForNodeReply(referral: NodeReferral): Behavior[SagaActorCommand] =
       Behaviors.receiveMessagePartial {
-        case WrappedNodeEntityResponse(wrappedNodeReply: EdgeQueryResult) =>
-          if (wrappedNodeReply.edgeResult.size < 6) {
+        case WrappedNodeEntityResponse(wrappedNodeReply: RecommendedResult) =>
             val stmt = new SimpleStatement(s"SELECT * FROM graph.nodes WHERE type='${wrappedNodeReply.nodeType}'").setFetchSize(100)
             val nodes = CassandraSource(stmt)
               .map{ row =>
@@ -107,28 +108,28 @@ object SagaActor {
             }
 
             waitingForRelevantNodes(referral, wrappedNodeReply)
-          } else {
-            userShardRegion ! ShardingEnvelope(
-              referral.userId,
-              NodeVisitRequest(
-                referral.userId,
-                referral.nodeId,
-                wrappedNodeReply.tags,
-                wrappedNodeReply.edgeResult.map(_.direction.nodeId).toSeq,
-                userEntityResponseMapper
-              )
-            )
-            println("NodeReply " * 20)
-            println(wrappedNodeReply)
-            waitingForUserReply(referral, wrappedNodeReply)
-          }
-
       }
 
-    def waitingForUserReply(referral: NodeReferral, nodeReply: GraphNodeCommandReply): Behavior[SagaActorCommand] =
+    def waitingForUserReply(referral: NodeReferral, nodeReply: RecommendedResult, relevantNodes: Seq[NodeQueryResult]): Behavior[SagaActorCommand] =
       Behaviors.receiveMessagePartial {
         case WrappedUserEntityResponse(wrapperUserReply: UserRequestSuccess) =>
-          referral.replyTo ! NodeReferralReply(wrapperUserReply.userId, wrapperUserReply.recommended)
+          val recommended = wrapperUserReply.recommended.foldLeft(Seq.empty[Edge]){
+            case (acc, r) =>
+              nodeReply
+                .edgeResult
+                .find(_.direction.nodeId == r)
+                .map(_ +: acc)
+                .getOrElse(acc)
+          }
+
+          val relevant = wrapperUserReply.relevant.foldLeft(Seq.empty[String]){
+            case (acc, r) =>
+              relevantNodes
+                .find(_.nodeId == r)
+                .map(_.nodeId +: acc)
+                .getOrElse(acc)
+          }
+          referral.replyTo ! NodeReferralReply(wrapperUserReply.userId, recommended, relevant)
           Behaviors.stopped
       }
 

@@ -17,11 +17,11 @@ import scala.concurrent.{ExecutionContextExecutor, Future}
 
 object NodeReadSideActor {
   val NodeUpdateEventName = "nodeupdate"
-  val ClickUpdateEventName = "clickupdate"
   case class ReadSideActorOffset(offset: Offset)
 
   def ReadSideActorBehaviour(
-    readSideConfig: ReadSideConfig
+    readSideConfig: ReadSideConfig,
+    offsetManagement: OffsetManagement
   )(implicit session: Session): Behavior[ReadSideActorOffset] = Behaviors.setup[ReadSideActorOffset] { context =>
     implicit val system: ActorSystem[Nothing] = context.system
     implicit val ec: ExecutionContextExecutor = system.executionContext
@@ -53,23 +53,6 @@ object NodeReadSideActor {
       nodeInsertBinder
     )
 
-    val offsetInsertStatement = session.prepare(s"INSERT INTO graph.read_side_offsets(tag, offset) VALUES (?, ?)")
-    val offsetInsertBinder =
-      (e: EventEnvelope, statement: PreparedStatement) => {
-        e.offset match {
-          case TimeBasedUUID(uuid) =>
-            statement.bind(NodeUpdateEventName, uuid)
-          case _ =>
-            throw new RuntimeException("wrong offset type")
-        }
-      }
-
-    val saveOffsetFlow = CassandraFlow.createWithPassThrough(
-      readSideConfig.producerParallelism,
-      offsetInsertStatement,
-      offsetInsertBinder
-    )
-
     val stmt = new SimpleStatement(s"SELECT * FROM graph.read_side_offsets WHERE tag = '$NodeUpdateEventName'").setFetchSize(1)
 
     val offsetQuery = CassandraSource(stmt)
@@ -92,8 +75,8 @@ object NodeReadSideActor {
           val createdStream: Source[EventEnvelope, NotUsed] = queries.eventsByTag(NodeUpdateEventName, offset)
           createdStream
             .via(saveNodeFlow)
-            .via(saveOffsetFlow)
-            .runWith(Sink.foreach(println))
+            .via(offsetManagement.saveOffsetFlow(readSideConfig.producerParallelism, NodeUpdateEventName))
+            .runWith(Sink.foreach(println)) //TODO: move on to the next message
 
           Behaviors.empty
       }
