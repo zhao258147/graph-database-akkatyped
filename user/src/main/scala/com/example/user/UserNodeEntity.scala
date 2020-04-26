@@ -95,10 +95,14 @@ object UserNodeEntity {
                 .persist(UserUpdated(update.userType, update.properties, update.labels))
                 .thenReply(update.replyTo)(_ => UserCommandSuccess(update.userId))
             case req: NodeVisitRequest =>
+              println(req.tags)
+              println(state)
               val toRecommand = req.recommended.filterNot(state.viewed.contains)
               val toRelate = req.relevant.filterNot(state.viewed.contains)
+              val evt = UserRequest(req.nodeId, req.tags)
+              println(evt)
               Effect
-                .persist(UserRequest(req.nodeId, req.tags))
+                .persist(evt)
                 .thenReply(req.replyTo)(_ => UserRequestSuccess(req.userId, toRecommand, toRelate))
             case cmd: CreateUserCommand =>
               Effect.reply(cmd.replyTo)(UserCommandFailed(cmd.userId, "User already exists"))

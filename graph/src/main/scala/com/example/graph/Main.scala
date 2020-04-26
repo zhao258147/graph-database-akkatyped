@@ -25,6 +25,8 @@ object Main extends App {
   import akka.actor.typed.scaladsl.adapter._
 
   val conf = ConfigFactory.load()
+  val config = conf.as[GraphConfig]("GraphConfig")
+
   implicit val system: ActorSystem = ActorSystem("RayDemo", conf)
   implicit val materializer: ActorMaterializer = ActorMaterializer()
   implicit val ec: ExecutionContextExecutor = system.dispatcher
@@ -32,16 +34,15 @@ object Main extends App {
   implicit val typedSystem: akka.actor.typed.ActorSystem[Nothing] = system.toTyped
 
   implicit val session: Session = Cluster.builder
-    .addContactPoint("127.0.0.1")
-    .withPort(9042)
+    .addContactPoint(config.cassandraConfig.contactPoints)
+    .withPort(config.cassandraConfig.port)
+    .withCredentials(config.cassandraConfig.username, config.cassandraConfig.password)
     .build
     .connect()
 
   val offsetManagement = new OffsetManagement
 
   val sharding = ClusterSharding(typedSystem)
-
-  val config = conf.as[GraphConfig]("GraphConfig")
 
   val settings = ClusterShardingSettings(typedSystem)
 

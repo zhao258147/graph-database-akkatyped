@@ -4,7 +4,8 @@ import scala.concurrent.duration.FiniteDuration
 
 case class GraphConfig (
   http: HttpConfig,
-  readSideConfig: ReadSideConfig
+  readSideConfig: ReadSideConfig,
+  cassandraConfig: CassandraConfig
 )
 
 case class HttpConfig (
@@ -15,4 +16,11 @@ case class HttpConfig (
 case class ReadSideConfig (
   producerParallelism: Int,
   idleTimeout: FiniteDuration
+)
+
+case class CassandraConfig (
+  contactPoints: String,
+  port: Int,
+  username: String,
+  password: String
 )

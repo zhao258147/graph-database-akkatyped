@@ -21,7 +21,7 @@ object GraphNodeEntity {
   type EdgeType = String
   type EdgePropertyType = String
   type EdgePropertyValue = String
-  type Tags = Map[Tag, Weight]
+  type Tags = Map[Tag, Int]
   type EdgeProperties = Map[EdgePropertyType, EdgePropertyValue]
   type Edges = Map[TargetNodeId, Edge]
   type EdgesWithProperties = Map[EdgeType, Edges]
@@ -42,8 +42,10 @@ object GraphNodeEntity {
   case class To(nodeId: String) extends EdgeDirection
   case class From(nodeId: String) extends EdgeDirection
 
+  val ReferralEdgeType = "referral"
 
-  case class Edge(edgeType: EdgeType, direction: EdgeDirection, properties: EdgeProperties, weight: Map[Tag, Weight])
+
+  case class Edge(edgeType: EdgeType, direction: EdgeDirection, properties: EdgeProperties, labels: Map[Tag, Weight], clicks: Int, visitors: Set[String])
 
   @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
   @JsonSubTypes(
@@ -60,11 +62,11 @@ object GraphNodeEntity {
   case class CreateNodeCommand(nodeId: String, nodeType: NodeType, tags: Tags, properties: NodeProperties, replyTo: ActorRef[GraphNodeCommandReply]) extends GraphNodeCommand[GraphNodeCommandReply]
   case class UpdateNodeCommand(nodeId: String, tags: Tags, properties: NodeProperties, replyTo: ActorRef[GraphNodeCommandReply]) extends GraphNodeCommand[GraphNodeCommandReply]
   case class RemoveEdgeCommand(nodeId: String, targetNodeId: TargetNodeId, edgeType: EdgeType, replyTo: ActorRef[GraphNodeCommandReply]) extends GraphNodeCommand[GraphNodeCommandReply]
-  case class UpdateEdgeCommand(nodeId: String, edgeType: EdgeType, direction: EdgeDirection, properties: EdgeProperties, userId: String, visitorLabels: Option[Map[String, Int]], replyTo: ActorRef[GraphNodeCommandReply]) extends GraphNodeCommand[GraphNodeCommandReply]
+  case class UpdateEdgeCommand(nodeId: String, edgeType: EdgeType, direction: EdgeDirection, properties: EdgeProperties, userId: String, visitorLabels: Option[Map[Tag, Weight]], replyTo: ActorRef[GraphNodeCommandReply]) extends GraphNodeCommand[GraphNodeCommandReply]
 
   case class NodeQuery(nodeId: String, replyTo: ActorRef[GraphNodeCommandReply]) extends GraphNodeCommand[GraphNodeCommandReply]
   case class EdgeQuery(nodeId: String, nodeType: Option[NodeType] = None, nodeProperties: NodeProperties, edgeTypes: Set[EdgeType], edgeProperties: EdgeProperties, replyTo: ActorRef[GraphNodeCommandReply]) extends GraphNodeCommand[GraphNodeCommandReply]
-  case class QueryRecommended(nodeId: String, visitorId: String, edgeTypes: Set[EdgeType], visitorLabels: Map[String, Int], edgeProperties: EdgeProperties, replyTo: ActorRef[GraphNodeCommandReply]) extends GraphNodeCommand[GraphNodeCommandReply]
+  case class QueryRecommended(nodeId: String, referrerNodeId: Option[String] = None, visitorId: String, edgeTypes: Set[EdgeType], visitorLabels: Map[Tag, Weight], edgeProperties: EdgeProperties = Map.empty, replyTo: ActorRef[GraphNodeCommandReply]) extends GraphNodeCommand[GraphNodeCommandReply]
 
   @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
   @JsonSubTypes(
@@ -112,7 +114,7 @@ object GraphNodeEntity {
     tags: Tags,
     uniqueVisitors: Set[String] = Set.empty,
     activeVisitors: Map[String, Long] = Map.empty,
-    clicks: Weight = 0,
+    clicks: Int = 0,
     previousClicks: Int = 0,
     previousClickCommit: Long = System.currentTimeMillis()
   ) extends GraphNodeState
@@ -184,21 +186,37 @@ object GraphNodeEntity {
               println(createdState)
 
               val targetEdges: Iterable[Edge] = createdState.outEdges.values.flatMap(_.values)
-              val edges = targetEdges.filter(x => query.edgeProperties.toSet.subsetOf(x.properties.toSet))
+              val edges = targetEdges.filter(x => query.edgeProperties.toSet.subsetOf(x.properties.toSet)).toSeq
 
-              val visitorTotalWeight = query.visitorLabels.values.sum
+              val sortedEdges: Seq[Edge] = edges.sortWith(_.clicks > _.clicks)
 
-              val recommended = edges.foldLeft(Seq.empty[(Edge, Int)]){
+              val visitorTotalWeight = query.visitorLabels.values.sum + 1
+
+              println(visitorTotalWeight)
+
+              val recommended: Seq[Edge] = edges.foldLeft(Seq.empty[(Edge, Weight)]){
                 case (acc, e) =>
                   val weightTotal = query.visitorLabels.foldLeft(0){
                     case (s, (label, weight)) =>
-                      s + (e.weight.getOrElse(label, 0) * (weight.toDouble / visitorTotalWeight)).toInt
+                      s + (e.labels.getOrElse(label, 0) * (weight.toDouble / visitorTotalWeight)).toInt
                   }
                   (e -> weightTotal) +: acc
               }.sortWith(_._2 > _._2).map(_._1)
 
-              val edgeQueryResult = RecommendedResult(createdState.nodeId, createdState.nodeType, createdState.tags, recommended, createdState.clicks, createdState.uniqueVisitors.size)
-              Effect.persist(GraphNodeVisitorUpdated(query.visitorId, System.currentTimeMillis())).thenReply(query.replyTo)(_ => edgeQueryResult)
+              println(recommended)
+
+              val edgeQueryResult = RecommendedResult(createdState.nodeId, createdState.nodeType, createdState.tags, recommended ++ sortedEdges.take(6 - recommended.size), createdState.clicks, createdState.uniqueVisitors.size)
+              val visitorUpdate = GraphNodeVisitorUpdated(query.visitorId, System.currentTimeMillis())
+              query.referrerNodeId match {
+                case Some(referrer) =>
+                  Effect.persist(
+                    visitorUpdate,
+                    GraphNodeEdgeUpdated(ReferralEdgeType, From(referrer), Map.empty, query.visitorId, query.visitorLabels)
+                  ).thenReply(query.replyTo)(_ => edgeQueryResult)
+
+                case None =>
+                  Effect.persist(visitorUpdate).thenReply(query.replyTo)(_ => edgeQueryResult)
+              }
 
             case checkEdge: EdgeQuery =>
               println(checkEdge)
@@ -269,11 +287,22 @@ object GraphNodeEntity {
               createdState.copy(outEdges = createdState.outEdges + (removeEdge.edgeType -> newEdges))
 
           case GraphNodeEdgeUpdated(edgeType, To(nodeId), properties, visitorId, labels) =>
-            val weight = createdState.outEdges.get(edgeType).flatMap(_.get(nodeId).map(_.weight ++ labels)).getOrElse(labels)
-            val newEdge = Edge(edgeType, To(nodeId), properties, weight)
+            val edgeOption: Option[Edge] = createdState.outEdges.get(edgeType).flatMap(_.get(nodeId))
+            val updatedEdge = edgeOption.map{ edge =>
+              val updatedLabels = edge.labels.foldLeft(Map.empty[Tag, Weight]){
+                case (acc, (tag, weight)) =>
+                  acc + (tag -> (weight + labels.getOrElse(tag, 0)))
+              }
+
+              edge.copy(
+                labels = updatedLabels,
+                clicks = edge.clicks + 1,
+                visitors = edge.visitors + visitorId
+              )
+            }.getOrElse(Edge(edgeType, To(nodeId), properties, labels, 1, Set(visitorId)))
 
             val targetEdges = createdState.outEdges.getOrElse(edgeType, Map.empty)
-            val newTargetEdges = targetEdges + (nodeId -> newEdge)
+            val newTargetEdges = targetEdges + (nodeId -> updatedEdge)
 
             println(newTargetEdges)
 
@@ -298,16 +327,28 @@ object GraphNodeEntity {
               activeVisitors = createdState.activeVisitors - visitorId
             )
 
-          case GraphNodeEdgeUpdated(edgeType, From(nodeId), properties, userId, labels) =>
-            val weight = createdState.inEdges.get(edgeType).flatMap(_.get(nodeId).map(_.weight ++ labels)).getOrElse(labels)
-            val newEdge = Edge(edgeType, From(nodeId), properties, weight)
+          case GraphNodeEdgeUpdated(edgeType, From(nodeId), properties, visitorId, labels) =>
+            val edgeOption: Option[Edge] = createdState.inEdges.get(edgeType).flatMap(_.get(nodeId))
+            val updatedEdge = edgeOption.map{ edge =>
+              val updatedLabels = edge.labels.foldLeft(Map.empty[Tag, Weight]){
+                case (acc, (tag, weight)) =>
+                  acc + (tag -> (weight + labels.getOrElse(tag, 0)))
+              }
 
-            val newTargetEdges = createdState.inEdges.getOrElse(edgeType, Map.empty) + (nodeId -> newEdge)
+              edge.copy(
+                labels = updatedLabels,
+                clicks = edge.clicks + 1,
+                visitors = edge.visitors + visitorId
+              )
+            }.getOrElse(Edge(edgeType, From(nodeId), properties, labels, 1, Set(visitorId)))
+
+            val targetEdges = createdState.inEdges.getOrElse(edgeType, Map.empty)
+            val newTargetEdges = targetEdges + (nodeId -> updatedEdge)
 
             println(newTargetEdges)
 
             createdState.copy(
-              inEdges = createdState.outEdges + (edgeType -> newTargetEdges),
+              inEdges = createdState.inEdges + (edgeType -> newTargetEdges)
             )
 
           case GraphNodeClickUpdated(_, _, ts, _) =>

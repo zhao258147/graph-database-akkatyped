@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Welcome to nginx!</title>
+    <style>
+    body {
+        width: 35em;
+        margin: 0 auto;
+        font-family: Tahoma, Verdana, Arial, sans-serif;
+    }
+</style>
+<script src="//imgcache.qq.com/open/qcloud/video/vcplayer/TcPlayer-2.3.2.js" charset="utf-8"></script>;
+
+<script>
+    var player =  new TcPlayer('id_test_video', {
+        "m3u8": "http://1301913776.vod2.myqcloud.com/bc950330vodtranscq1301913776/2c1203815285890801689916797/v.f220.m3u8",
+        "flv": "http://1301913776.vod2.myqcloud.com/bc950330vodtranscq1301913776/2c1203815285890801689916797/v.f10047.flv", //增加了一个 flv 的播放地址，用于PC平台的播放 请替换成实际可用的播放地址
+        "autoplay" : true,      //iOS 下 safari 浏览器，以及大部分移动端浏览器是不开放视频自动播放这个能力的
+        "poster" : "http://www.test.com/myimage.jpg",
+        "width" :  '640',//视频的显示宽度，请尽量使用视频分辨率宽度
+        "height" : '244'//视频的显示高度，请尽量使用视频分辨率高度
+        });
+</script>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+
+<div id="id_test_video" style="width:100%; height:auto;"></div>
+
+
+<p>If you see this page, the nginx web server is successfully installed and
+    working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+    <a href="http://nginx.org/">nginx.org</a>.<br/>
+    Commercial support is available at
+    <a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>

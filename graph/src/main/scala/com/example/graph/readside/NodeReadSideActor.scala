@@ -1,8 +1,8 @@
 package com.example.graph.readside
 
-import akka.{Done, NotUsed}
-import akka.actor.typed.{ActorSystem, Behavior}
+import akka.NotUsed
 import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.{ActorSystem, Behavior}
 import akka.persistence.cassandra.query.scaladsl.CassandraReadJournal
 import akka.persistence.query._
 import akka.stream.alpakka.cassandra.CassandraBatchSettings
@@ -12,8 +12,7 @@ import com.datastax.driver.core._
 import com.example.graph.GraphNodeEntity.GraphNodeUpdated
 import com.example.graph.config.ReadSideConfig
 
-import scala.collection.immutable
-import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.concurrent.ExecutionContextExecutor
 
 object NodeReadSideActor {
   val NodeUpdateEventName = "nodeupdate"

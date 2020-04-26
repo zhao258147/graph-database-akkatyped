@@ -234,15 +234,15 @@ class GraphScenario extends Simulation {
 //    nodeScn.inject(rampUsers(99) during (20 seconds))
 //  ).protocols(httpConf)
 
-//  val visitorConf = http.shareConnections.contentTypeHeader("application/json")
-//  setUp(
-//    vistorScn.inject(rampUsers(50) during (100 seconds))
-//  ).protocols(visitorConf)
-
-
-  val userUrl = "http://localhost:8082"
-  val userConf = http.baseUrl(userUrl).shareConnections.contentTypeHeader("application/json")
+  val visitorConf = http.shareConnections.contentTypeHeader("application/json")
   setUp(
-    userScn.inject(rampUsers(50) during (10 seconds))
-  ).protocols(userConf)
+    vistorScn.inject(rampUsers(50) during (100 seconds))
+  ).protocols(visitorConf)
+
+//
+//  val userUrl = "http://localhost:8082"
+//  val userConf = http.baseUrl(userUrl).shareConnections.contentTypeHeader("application/json")
+//  setUp(
+//    userScn.inject(rampUsers(50) during (10 seconds))
+//  ).protocols(userConf)
 }

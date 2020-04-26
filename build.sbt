@@ -67,8 +67,11 @@ lazy val `graph` = (project in file("graph"))
     scalaVersion := "2.12.8",
     cinnamon in run := true,
     dockerExposedPorts ++= Seq(9001, 9999, 2551),
+    dockerRepository := Some("registry.cn-beijing.aliyuncs.com"),
+    dockerUsername := Some("firsttest"),
     libraryDependencies ++= commonDependencies,
     libraryDependencies ++= Seq(
+      "com.github.dnvriend" %% "akka-persistence-jdbc" % "3.5.2",
       Cinnamon.library.cinnamonAkkaTyped,
       Cinnamon.library.cinnamonPrometheus,
       Cinnamon.library.cinnamonPrometheusHttpServer

@@ -25,7 +25,7 @@ object SagaActor {
   sealed trait SagaActorReply
   case class NodeReferralReply(userId: UserId, recommended: Seq[Edge], relevant: Seq[String]) extends SagaActorReply
 
-  case class NodeQueryResult(nodeType: String, nodeId: String, tags: java.util.Map[String, Integer], properties: java.util.Map[String, String])
+  case class NodeQueryResult(nodeType: String, nodeId: String, tags: java.util.Map[String, java.lang.Integer], properties: java.util.Map[String, String])
 
   def apply(
     graphShardRegion: ActorRef[ShardingEnvelope[GraphNodeCommand[GraphNodeCommandReply]]],
@@ -48,12 +48,11 @@ object SagaActor {
           graphShardRegion ! ShardingEnvelope(
             referral.nodeId,
             QueryRecommended(
-              referral.nodeId,
-              referral.userId,
-              Set(SagaEdgeType),
-              referral.userLabels,
-              Map.empty,
-              nodeEntityResponseMapper
+              nodeId = referral.nodeId,
+              visitorId = referral.userId,
+              edgeTypes = Set(SagaEdgeType),
+              visitorLabels = referral.userLabels,
+              replyTo = nodeEntityResponseMapper
             )
           )
           waitingForNodeReply(referral)
@@ -113,8 +112,11 @@ object SagaActor {
     def waitingForUserReply(referral: NodeReferral, nodeReply: RecommendedResult, relevantNodes: Seq[NodeQueryResult]): Behavior[SagaActorCommand] =
       Behaviors.receiveMessagePartial {
         case WrappedUserEntityResponse(wrapperUserReply: UserRequestSuccess) =>
+          println(wrapperUserReply.recommended)
           val recommended = wrapperUserReply.recommended.foldLeft(Seq.empty[Edge]){
             case (acc, r) =>
+              println(r)
+              println(nodeReply.edgeResult)
               nodeReply
                 .edgeResult
                 .find(_.direction.nodeId == r)
@@ -129,6 +131,7 @@ object SagaActor {
                 .map(_.nodeId +: acc)
                 .getOrElse(acc)
           }
+          println(recommended)
           referral.replyTo ! NodeReferralReply(wrapperUserReply.userId, recommended, relevant)
           Behaviors.stopped
       }
