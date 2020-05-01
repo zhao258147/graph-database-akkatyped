@@ -1,13 +1,15 @@
 package com.example.graph
 
 import akka.actor.ActorSystem
-import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, SupervisorStrategy}
+import akka.actor.typed.scaladsl.Behaviors
 import akka.cluster.sharding.typed.ClusterShardingSettings
 import akka.cluster.sharding.typed.scaladsl.{ClusterSharding, Entity}
 import akka.cluster.typed.{ClusterSingleton, SingletonActor}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Route
+import akka.management.cluster.bootstrap.ClusterBootstrap
+import akka.management.scaladsl.AkkaManagement
 import akka.persistence.typed.PersistenceId
 import akka.stream.ActorMaterializer
 import com.datastax.driver.core.{Cluster, Session}
@@ -33,14 +35,15 @@ object Main extends App {
 
   implicit val typedSystem: akka.actor.typed.ActorSystem[Nothing] = system.toTyped
 
+  AkkaManagement(system).start()
+  ClusterBootstrap(system).start()
+
   implicit val session: Session = Cluster.builder
     .addContactPoint(config.cassandraConfig.contactPoints)
     .withPort(config.cassandraConfig.port)
     .withCredentials(config.cassandraConfig.username, config.cassandraConfig.password)
     .build
     .connect()
-
-  val offsetManagement = new OffsetManagement
 
   val sharding = ClusterSharding(typedSystem)
 
@@ -55,8 +58,7 @@ object Main extends App {
       ).withRole("graph")
     )
 
-  val graphQuerySupervisor = system.spawn(GraphActorSupervisor.apply(shardRegion), "graphQuerySupervisor")
-
+  val offsetManagement = new OffsetManagement
   val singletonManager = ClusterSingleton(typedSystem)
   val nodeReadSideActor = singletonManager.init(
     SingletonActor(
@@ -76,7 +78,9 @@ object Main extends App {
         )
       ).onFailure[Exception](SupervisorStrategy.restart), "ClickReadSide"))
 
-  val route: Route = RequestApi.route(shardRegion, graphQuerySupervisor, clickReadSideActor)
+  val graphQuerySupervisor = system.spawn(GraphActorSupervisor.apply(shardRegion), "graphQuerySupervisor")
+
+  val route: Route = RequestApi.route(shardRegion, graphQuerySupervisor)
 
   private val cors = new CORSHandler {}
 

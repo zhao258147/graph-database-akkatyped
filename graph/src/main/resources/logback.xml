@@ -16,8 +16,8 @@
 
   <!-- Set logging for all Akka library classes to ERROR -->
   <logger name="akka" level="DEBUG" />
-  <logger name="org.apache.cassandra" level="DEBUG" />
-  <logger name="com.datastax.driver" level="DEBUG" />
+  <logger name="org.apache.cassandra" level="WARN" />
+  <logger name="com.datastax.driver" level="WARN" />
   <!-- Turn down Kafka noise -->
   <logger name="org.apache.kafka" level="INFO" />
 

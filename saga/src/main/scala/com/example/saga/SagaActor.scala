@@ -3,16 +3,15 @@ package com.example.saga
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.cluster.sharding.typed.ShardingEnvelope
-import akka.stream.alpakka.cassandra.scaladsl.CassandraSource
-import akka.stream.scaladsl.Sink
 import akka.util.Timeout
-import com.datastax.driver.core.{Session, SimpleStatement}
-import com.example.graph.GraphNodeEntity.{Edge, EdgeQuery, EdgeQueryResult, GraphNodeCommand, GraphNodeCommandReply, NodeId, QueryRecommended, RecommendedResult}
+import com.datastax.driver.core.Session
+import com.example.graph.GraphNodeEntity._
+import com.example.graph.readside.ClickReadSideActor.{TrendingNodesCommand, TrendingNodesResponse}
+import com.example.graph.readside.NodeReadSideActor.{RelatedNodeQuery, RelatedNodeQueryResponse}
+import com.example.graph.readside.{ClickReadSideActor, NodeReadSideActor}
 import com.example.user.UserNodeEntity._
 
-import scala.collection.JavaConverters._
 import scala.concurrent.duration._
-import scala.util.{Failure, Success}
 
 object SagaActor {
   val SagaEdgeType = "User"
@@ -21,15 +20,46 @@ object SagaActor {
   case class RelevantNodes(nodes: Seq[NodeQueryResult]) extends SagaActorCommand
   case class WrappedNodeEntityResponse(nodeEntityResponse: GraphNodeCommandReply) extends SagaActorCommand
   case class WrappedUserEntityResponse(userEntityResponse: UserReply) extends SagaActorCommand
+  case class WrappedClickActorResponse(trendingResponse: TrendingNodesResponse) extends SagaActorCommand
+  case class WrappedNodeActorResponse(nodesResponse: RelatedNodeQueryResponse) extends SagaActorCommand
 
   sealed trait SagaActorReply
-  case class NodeReferralReply(userId: UserId, recommended: Seq[Edge], relevant: Seq[String]) extends SagaActorReply
+  case class NodeReferralReply(userId: UserId, recommended: Seq[String], relevant: Seq[String], popular: Seq[String], overallRanking: Seq[String], rankingByType: Map[String, Seq[String]]) extends SagaActorReply
 
   case class NodeQueryResult(nodeType: String, nodeId: String, tags: java.util.Map[String, java.lang.Integer], properties: java.util.Map[String, String])
 
+  private def checkAllResps(
+    userEntityResponseMapper: ActorRef[UserReply],
+    referral: NodeReferral,
+    userShardRegion: ActorRef[ShardingEnvelope[UserCommand[UserReply]]],
+    recommendedResult: Option[RecommendedResult],
+    nodeActorResponse: Option[RelatedNodeQueryResponse],
+    trendingNodesResponse: Option[TrendingNodesResponse]
+  ) = for {
+    entityResp <- recommendedResult
+    nodeResp <- nodeActorResponse
+    trendingResp <- trendingNodesResponse
+  } yield {
+    userShardRegion ! ShardingEnvelope(
+      referral.userId,
+      NodeVisitRequest(
+        referral.userId,
+        referral.nodeId,
+        entityResp.tags,
+        entityResp.similarUserEdges.map(_.direction.nodeId),
+        entityResp.popularEdges.map(_.direction.nodeId),
+        nodeResp.list.map(_.nodeId),
+        userEntityResponseMapper
+      )
+    )
+    (entityResp, nodeResp, trendingResp)
+  }
+
   def apply(
     graphShardRegion: ActorRef[ShardingEnvelope[GraphNodeCommand[GraphNodeCommandReply]]],
-    userShardRegion: ActorRef[ShardingEnvelope[UserCommand[UserReply]]]
+    userShardRegion: ActorRef[ShardingEnvelope[UserCommand[UserReply]]],
+    clickReadSideActor: ActorRef[ClickReadSideActor.ClickStatCommands],
+    nodeReadSideActor: ActorRef[NodeReadSideActor.NodeReadSideCommand]
   )(implicit session: Session): Behavior[SagaActorCommand] = Behaviors.setup { cxt =>
     println(cxt.self)
     implicit val system = cxt.system
@@ -41,6 +71,12 @@ object SagaActor {
 
     val userEntityResponseMapper: ActorRef[UserReply] =
       cxt.messageAdapter(rsp => WrappedUserEntityResponse(rsp))
+
+    val trendingActorResponseMapper: ActorRef[TrendingNodesResponse] =
+      cxt.messageAdapter(rsp => WrappedClickActorResponse(rsp))
+
+    val nodeActorResponseMapper: ActorRef[RelatedNodeQueryResponse] =
+      cxt.messageAdapter(rsp => WrappedNodeActorResponse(rsp))
 
     def initial(): Behavior[SagaActorCommand] =
       Behaviors.receiveMessagePartial {
@@ -55,84 +91,41 @@ object SagaActor {
               replyTo = nodeEntityResponseMapper
             )
           )
-          waitingForNodeReply(referral)
+
+          clickReadSideActor ! TrendingNodesCommand(referral.userLabels.keySet, trendingActorResponseMapper)
+          nodeReadSideActor ! RelatedNodeQuery(referral.userLabels, nodeActorResponseMapper)
+          waitingForRecommendationReply(referral, None, None, None)
       }
 
-    def waitingForRelevantNodes(referral: NodeReferral, wrappedNodeReply: RecommendedResult): Behavior[SagaActorCommand] =
-      Behaviors.receiveMessagePartial {
-        case RelevantNodes(nodes) =>
-          userShardRegion ! ShardingEnvelope(
-            referral.userId,
-            NodeVisitRequest(
-              referral.userId,
-              referral.nodeId,
-              wrappedNodeReply.tags,
-              wrappedNodeReply.edgeResult.map(_.direction.nodeId),
-              nodes.map(_.nodeId),
-              userEntityResponseMapper
-            )
-          )
-          waitingForUserReply(referral, wrappedNodeReply, nodes)
-      }
-
-    def waitingForNodeReply(referral: NodeReferral): Behavior[SagaActorCommand] =
+    def waitingForRecommendationReply(referral: NodeReferral, recommendedResult: Option[RecommendedResult], nodeActorResponse: Option[RelatedNodeQueryResponse], trendingNodesResponse: Option[TrendingNodesResponse]): Behavior[SagaActorCommand] =
       Behaviors.receiveMessagePartial {
         case WrappedNodeEntityResponse(wrappedNodeReply: RecommendedResult) =>
-            val stmt = new SimpleStatement(s"SELECT * FROM graph.nodes WHERE type='${wrappedNodeReply.nodeType}'").setFetchSize(100)
-            val nodes = CassandraSource(stmt)
-              .map{ row =>
-                println(row)
-                NodeQueryResult(
-                  row.getString("type"),
-                  row.getString("id"),
-                  row.getMap("tags", classOf[String], classOf[java.lang.Integer]),
-                  row.getMap("properties", classOf[String], classOf[String])
-                )
-              }
-              .runWith(Sink.seq)
+          checkAllResps(userEntityResponseMapper, referral, userShardRegion, Some(wrappedNodeReply), nodeActorResponse, trendingNodesResponse)
+              .map{
+                case (entityResp, nodeResp, trendingResp) =>
+                  waitingForUserReply(referral, entityResp, nodeResp, trendingResp)
+              }.getOrElse(waitingForRecommendationReply(referral, Some(wrappedNodeReply), nodeActorResponse, trendingNodesResponse))
 
-            cxt.pipeToSelf(nodes) {
-              case Success(x) =>
-                val relevantNodes = x.foldLeft(Seq.empty[NodeQueryResult]){
-                  case (acc, n) if n.nodeId != wrappedNodeReply.nodeId && n.nodeType == wrappedNodeReply.nodeType && (n.tags.asScala.keySet & wrappedNodeReply.tags.keySet).size > 1  =>
-                    n +: acc
-                  case (acc, _) =>
-                    acc
-                }.sortWith((n1, n2) => (n1.tags.asScala.keySet & wrappedNodeReply.tags.keySet).size > (n2.tags.asScala.keySet & wrappedNodeReply.tags.keySet).size )
+        case WrappedClickActorResponse(wrappedTrendingReply) =>
+          checkAllResps(userEntityResponseMapper, referral, userShardRegion, recommendedResult, nodeActorResponse, Some(wrappedTrendingReply))
+            .map{
+              case (entityResp, nodeResp, trendingResp) =>
+                waitingForUserReply(referral, entityResp, nodeResp, trendingResp)
+            }.getOrElse(waitingForRecommendationReply(referral, recommendedResult, nodeActorResponse, Some(wrappedTrendingReply)))
 
-                RelevantNodes(relevantNodes)
-              case Failure(e) =>
-                //TODO: get most popular nodes
-                RelevantNodes(Seq.empty)
-            }
-
-            waitingForRelevantNodes(referral, wrappedNodeReply)
+        case WrappedNodeActorResponse(wrappedNodeReply) =>
+          checkAllResps(userEntityResponseMapper, referral, userShardRegion, recommendedResult, Some(wrappedNodeReply), trendingNodesResponse)
+            .map{
+              case (entityResp, nodeResp, trendingResp) =>
+                waitingForUserReply(referral, entityResp, nodeResp, trendingResp)
+            }.getOrElse(waitingForRecommendationReply(referral, recommendedResult, Some(wrappedNodeReply), trendingNodesResponse))
       }
 
-    def waitingForUserReply(referral: NodeReferral, nodeReply: RecommendedResult, relevantNodes: Seq[NodeQueryResult]): Behavior[SagaActorCommand] =
+    def waitingForUserReply(referral: NodeReferral, nodeReply: RecommendedResult, nodeActorResponse: RelatedNodeQueryResponse, trendingNodesResponse: TrendingNodesResponse): Behavior[SagaActorCommand] =
       Behaviors.receiveMessagePartial {
         case WrappedUserEntityResponse(wrapperUserReply: UserRequestSuccess) =>
-          println(wrapperUserReply.recommended)
-          val recommended = wrapperUserReply.recommended.foldLeft(Seq.empty[Edge]){
-            case (acc, r) =>
-              println(r)
-              println(nodeReply.edgeResult)
-              nodeReply
-                .edgeResult
-                .find(_.direction.nodeId == r)
-                .map(_ +: acc)
-                .getOrElse(acc)
-          }
-
-          val relevant = wrapperUserReply.relevant.foldLeft(Seq.empty[String]){
-            case (acc, r) =>
-              relevantNodes
-                .find(_.nodeId == r)
-                .map(_.nodeId +: acc)
-                .getOrElse(acc)
-          }
-          println(recommended)
-          referral.replyTo ! NodeReferralReply(wrapperUserReply.userId, recommended, relevant)
+          println(wrapperUserReply)
+          referral.replyTo ! NodeReferralReply(wrapperUserReply.userId, wrapperUserReply.recommended, wrapperUserReply.relevant, wrapperUserReply.popular, trendingNodesResponse.overallRanking, trendingNodesResponse.rankingByType)
           Behaviors.stopped
       }
 

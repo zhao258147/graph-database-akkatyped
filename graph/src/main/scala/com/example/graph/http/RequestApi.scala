@@ -13,8 +13,9 @@ import com.example.graph.query.GraphQueryActor.GraphQueryReply
 import com.example.graph.query.GraphActorSupervisor
 import com.example.graph.query.GraphActorSupervisor.{GraphQueryProgress, StartEdgeSagaActor, StartGraphQueryActor, StartWeightQuery}
 import com.example.graph.query.WeightQueryActor.WeightQueryReply
-import com.example.graph.readside.ClickReadSideActor
+import com.example.graph.readside.{ClickReadSideActor, NodeReadSideActor}
 import com.example.graph.readside.ClickReadSideActor.{TrendingNodesCommand, TrendingNodesResponse}
+import com.example.graph.readside.NodeReadSideActor.{RelatedNodeQuery, RelatedNodeQueryResponse}
 import com.example.graph.saga.EdgeCreationSaga.EdgeCreationReply
 import de.heikoseeberger.akkahttpjson4s.Json4sSupport
 import org.json4s.{DefaultFormats, Formats, native}
@@ -30,7 +31,6 @@ object RequestApi extends Json4sSupport {
   def route(
     graphCordinator: ActorRef[ShardingEnvelope[GraphNodeCommand[GraphNodeCommandReply]]],
     graphActorSupervisor: ActorRef[GraphActorSupervisor.GraphQuerySupervisorCommand],
-    clickReadSideActor: ActorRef[ClickReadSideActor.ClickStatCommands]
   )(implicit system: akka.actor.typed.ActorSystem[Nothing], ec: ExecutionContext, session: Session): Route = {
 
 
@@ -40,22 +40,33 @@ object RequestApi extends Json4sSupport {
           entity(as[CreateNodeReq]) { createCommand =>
             complete(
               graphCordinator.ask[GraphNodeCommandReply] { ref: ActorRef[GraphNodeCommandReply] =>
-                ShardingEnvelope(createCommand.nodeId, CreateNodeCommand(createCommand.nodeId, createCommand.nodeType, createCommand.tags, createCommand.properties, ref))
+                ShardingEnvelope(createCommand.nodeId, CreateNodeCommand(createCommand.nodeId, createCommand.nodeType, createCommand.companyId, createCommand.tags, createCommand.properties, ref))
               }
             )
           }
         } ~
-        pathPrefix("trending") {
-          post {
-            entity(as[TrendingNodesReq]) { query =>
-              complete(
-                clickReadSideActor.ask[TrendingNodesResponse] { ref =>
-                  TrendingNodesCommand(query.types, ref)
-                }
-              )
-            }
-          }
-        } ~
+//        pathPrefix("trending") {
+//          post {
+//            entity(as[TrendingNodesReq]) { query =>
+//              complete(
+//                clickReadSideActor.ask[TrendingNodesResponse] { ref =>
+//                  TrendingNodesCommand(query.tags, ref)
+//                }
+//              )
+//            }
+//          }
+//        } ~
+//        pathPrefix("relevant") {
+//          post {
+//            entity(as[RelevantNodesReq]) { query =>
+//              complete(
+//                nodeReadSideActor.ask[RelatedNodeQueryResponse] { ref =>
+//                  RelatedNodeQuery(query.tags, ref)
+//                }
+//              )
+//            }
+//          }
+//        } ~
         pathPrefix("query") {
           pathPrefix(Segment) { queryId =>
             get {
@@ -138,6 +149,7 @@ object RequestApi extends Json4sSupport {
                             updateEdgeReq.properties,
                             updateEdgeReq.userId,
                             if(updateEdgeReq.userLabels.isEmpty) None else Some(updateEdgeReq.userLabels),
+                            if(updateEdgeReq.weight == 0) None else Some(updateEdgeReq.weight),
                             ref
                           )
                         )
@@ -155,6 +167,7 @@ object RequestApi extends Json4sSupport {
                             updateEdgeReq.properties,
                             updateEdgeReq.userId,
                             if(updateEdgeReq.userLabels.isEmpty) None else Some(updateEdgeReq.userLabels),
+                            if(updateEdgeReq.weight == 0) None else Some(updateEdgeReq.weight),
                             ref
                           )
                         )

@@ -85,6 +85,8 @@ class GraphScenario extends Simulation {
     "user"
   )
 
+  val companyFeeder = csv("companyId.csv").random
+
   def nodeReq(session: Session): CreateNodeReq = {
     val nodeId = session("nodeId").as[String]
     println(nodeId)
@@ -97,9 +99,12 @@ class GraphScenario extends Simulation {
     val tags = Seq(nodetype, tag, companySeq(rand.nextInt(13)), randomTags(rand.nextInt(9)), speakerSeq(rand.nextInt(5)), audienceSeq(rand.nextInt(4)))
     val tagMap = tags.map(_ -> (rand.nextInt(5) + 1)).toMap
 
+    val company = session("company").as[String]
+
     CreateNodeReq(
       nodeId,
       nodetype,
+      company,
       tagMap,
       Map("x" -> x, "y" -> y)
     )
@@ -108,6 +113,7 @@ class GraphScenario extends Simulation {
   val nodeScn = scenario("create nodes")
     .feed(nodeIdFeeder)
     .feed(tagsFeeder)
+    .feed(companyFeeder)
     .exec(
       http("create node")
         .put("/api/graph")
@@ -206,7 +212,7 @@ class GraphScenario extends Simulation {
       .exec{ session =>
         val requestResponseStr = session("requestResponse").as[String]
         val resp: NodeReferralReply = JsonMethods.parse(requestResponseStr).extract[NodeReferralReply]
-        val selectFrom: Seq[String] = resp.recommended.map(_.direction.nodeId) ++ resp.relevant
+        val selectFrom: Seq[String] = resp.recommended ++ resp.relevant ++ resp.popular ++ resp.overallRanking
         val targetNode = selectFrom.drop(rand.nextInt(selectFrom.size - 1)).head
         println("x"*100)
         println(session("userId").as[String])
@@ -236,13 +242,13 @@ class GraphScenario extends Simulation {
 
   val visitorConf = http.shareConnections.contentTypeHeader("application/json")
   setUp(
-    vistorScn.inject(rampUsers(50) during (100 seconds))
+    vistorScn.inject(rampUsers(100) during (100 seconds))
   ).protocols(visitorConf)
 
 //
 //  val userUrl = "http://localhost:8082"
 //  val userConf = http.baseUrl(userUrl).shareConnections.contentTypeHeader("application/json")
 //  setUp(
-//    userScn.inject(rampUsers(50) during (10 seconds))
+//    userScn.inject(rampUsers(50) during (100 seconds))
 //  ).protocols(userConf)
 }

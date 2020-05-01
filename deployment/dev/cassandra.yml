@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: '1'
+  creationTimestamp: '2020-04-28T03:27:18Z'
+  generation: 1
+  labels:
+    app: cassandra
+  name: cassandra
+  namespace: default
+  resourceVersion: '12665440'
+  selfLink: /apis/apps/v1/namespaces/default/deployments/cassandra
+  uid: 1a3b4502-0e83-40d0-857d-3d8fe55cb093
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: cassandra
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: cassandra
+    spec:
+      containers:
+        - env:
+            - name: LANG
+              value: en_US.UTF-8
+            - name: LANGUAGE
+              value: 'en_US:en'
+            - name: LC_ALL
+              value: en_US.UTF-8
+            - name: JAVA_HOME
+              value: /opt/java/openjdk
+            - name: CASSANDRA_HOME
+              value: /opt/cassandra
+            - name: CASSANDRA_CONF
+              value: /etc/cassandra
+            - name: GPG_KEYS
+              value: "514A2AD631A57A16DD0047EC749D6EEC0353B12C \tA26E528B271F19B9E5D8E19EA278B781FE4B2BDA \tA4C465FEA0C552561A392A61E91335D77E3E87CB"
+            - name: CASSANDRA_SHA512
+              value: >-
+                0e778f8fb4a050fde3ec174a9ca365e49ef437cd9e61280b6b4dcba950418a3d04a104bb41aed1add858e2acc2513cf7df4065ca5ca751dd1daf60e70adc4042
+          image: 'registry-vpc.cn-beijing.aliyuncs.com/firsttest/cassandra:3.11'
+          imagePullPolicy: IfNotPresent
+          name: cassandra
+          ports:
+            - containerPort: 7001
+              name: cql
+              protocol: TCP
+            - containerPort: 9042
+              protocol: TCP
+            - containerPort: 9160
+              protocol: TCP
+            - containerPort: 7199
+              protocol: TCP
+            - containerPort: 7000
+              protocol: TCP
+          resources:
+            requests:
+              cpu: '1'
+              memory: 2Gi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/cassandra
+              name: volume-image-0
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - emptyDir: {}
+          name: volume-image-0
+status:
+  availableReplicas: 1
+  conditions:
+    - lastTransitionTime: '2020-04-28T03:27:52Z'
+      lastUpdateTime: '2020-04-28T03:27:52Z'
+      message: Deployment has minimum availability.
+      reason: MinimumReplicasAvailable
+      status: 'True'
+      type: Available
+    - lastTransitionTime: '2020-04-28T03:27:18Z'
+      lastUpdateTime: '2020-04-28T03:27:52Z'
+      message: ReplicaSet "cassandra-84f67fbb86" has successfully progressed.
+      reason: NewReplicaSetAvailable
+      status: 'True'
+      type: Progressing
+  observedGeneration: 1
+  readyReplicas: 1
+  replicas: 1
+  updatedReplicas: 1

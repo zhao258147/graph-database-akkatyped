@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.beta.kubernetes.io/alibaba-cloud-loadbalancer-spec: slb.s1.small
+  creationTimestamp: '2020-04-28T15:18:29Z'
+  name: cassandra-svc
+  namespace: default
+  resourceVersion: '14533202'
+  selfLink: /api/v1/namespaces/default/services/cassandra-svc
+  uid: bde223cc-0edc-42e3-b427-1968b4fbecb8
+spec:
+  clusterIP: 172.19.4.31
+  externalTrafficPolicy: Local
+  healthCheckNodePort: 32714
+  ports:
+    - name: cql
+      nodePort: 31490
+      port: 9042
+      protocol: TCP
+      targetPort: 9042
+  selector:
+    app: cassandra
+  sessionAffinity: None
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+      - ip: 123.57.244.10

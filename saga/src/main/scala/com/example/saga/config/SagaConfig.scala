@@ -1,5 +1,7 @@
 package com.example.saga.config
 
+import com.example.graph.config.ReadSideConfig
+
 import scala.concurrent.duration.FiniteDuration
 
 case class SagaConfig (
@@ -13,12 +15,9 @@ case class HttpConfig (
   port: Int
 )
 
-case class ReadSideConfig (
-  producerParallelism: Int,
-  idleTimeout: FiniteDuration
-)
-
 case class CassandraConfig (
   contactPoints: String,
-  port: Int
+  port: Int,
+  username: String,
+  password: String
 )

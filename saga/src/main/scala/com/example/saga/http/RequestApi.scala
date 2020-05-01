@@ -43,7 +43,7 @@ object RequestApi extends Json4sSupport {
           entity(as[NodeVisitReq]) { updateEdgeReq =>
             complete(
               graphCordinator.ask[GraphNodeCommandReply] { ref =>
-                ShardingEnvelope(updateEdgeReq.nodeId, UpdateEdgeCommand(updateEdgeReq.nodeId, SagaActor.SagaEdgeType, To(updateEdgeReq.targetNodeId), updateEdgeReq.properties, updateEdgeReq.userId, Some(updateEdgeReq.userLabels), ref))
+                ShardingEnvelope(updateEdgeReq.nodeId, UpdateEdgeCommand(updateEdgeReq.nodeId, SagaActor.SagaEdgeType, To(updateEdgeReq.targetNodeId), updateEdgeReq.properties, updateEdgeReq.userId, Some(updateEdgeReq.userLabels), None, ref))
               }
             )
           }

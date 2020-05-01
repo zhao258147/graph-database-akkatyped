@@ -20,5 +20,7 @@ case class ReadSideConfig (
 
 case class CassandraConfig (
   contactPoints: String,
-  port: Int
+  port: Int,
+  username: String,
+  password: String
 )

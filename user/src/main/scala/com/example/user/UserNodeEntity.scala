@@ -26,7 +26,7 @@ object UserNodeEntity {
 
   case class CreateUserCommand(userId: UserId, userType: String, properties: Map[String, String], labels: Set[LabelWeight], replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
   case class UpdateUserCommand(userId: UserId, userType: String, properties: Map[String, String], labels: Set[LabelWeight], replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
-  case class NodeVisitRequest(userId: UserId, nodeId: String, tags: Map[String, Int], recommended: Seq[String], relevant: Seq[String], replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
+  case class NodeVisitRequest(userId: UserId, nodeId: String, tags: Map[String, Int], recommended: Seq[String], popular: Seq[String], relevant: Seq[String], replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
   case class UserRetrievalCommand(userId: UserId, replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
 
   @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
@@ -41,7 +41,7 @@ object UserNodeEntity {
     val userId: UserId
   }
   case class UserCommandSuccess(userId: UserId) extends UserReply
-  case class UserRequestSuccess(userId: UserId, recommended: Seq[String], relevant: Seq[String]) extends UserReply
+  case class UserRequestSuccess(userId: UserId, recommended: Seq[String], popular: Seq[String], relevant: Seq[String]) extends UserReply
   case class UserCommandFailed(userId: UserId, error: String) extends UserReply
   case class UserInfo(userId: UserId, state: CreatedUserState) extends UserReply
 
@@ -77,6 +77,8 @@ object UserNodeEntity {
 
   private def commandHandler(context: ActorContext[UserCommand[UserReply]]): (UserState, UserCommand[UserReply]) => ReplyEffect[UserEvent, UserState] = {
     (state, command) =>
+      context.log.debug(command.toString)
+      context.log.debug(state.toString)
       state match {
         case empty: EmptyUserState =>
           command match {
@@ -84,6 +86,7 @@ object UserNodeEntity {
               Effect
                 .persist(UserCreated(cmd.userId, cmd.userType, cmd.properties, cmd.labels))
                 .thenReply(cmd.replyTo)(_ => UserCommandSuccess(cmd.userId))
+
             case cmd =>
               Effect.reply(cmd.replyTo)(UserCommandFailed(cmd.userId, "User does not exist"))
           }
@@ -94,21 +97,22 @@ object UserNodeEntity {
               Effect
                 .persist(UserUpdated(update.userType, update.properties, update.labels))
                 .thenReply(update.replyTo)(_ => UserCommandSuccess(update.userId))
+
             case req: NodeVisitRequest =>
-              println(req.tags)
-              println(state)
-              val toRecommand = req.recommended.filterNot(state.viewed.contains)
-              val toRelate = req.relevant.filterNot(state.viewed.contains)
+              val viewed = state.viewed.take(20)
+              val rcmdFiltered = req.recommended.filterNot(viewed.contains)
+              val relatedFiltered = req.relevant.filterNot(viewed.contains)
+              val popularFiltered = req.popular.filterNot(viewed.contains)
               val evt = UserRequest(req.nodeId, req.tags)
-              println(evt)
+              context.log.debug(evt.toString)
               Effect
                 .persist(evt)
-                .thenReply(req.replyTo)(_ => UserRequestSuccess(req.userId, toRecommand, toRelate))
+                .thenReply(req.replyTo)(_ => UserRequestSuccess(req.userId, rcmdFiltered, relatedFiltered, popularFiltered))
+
             case cmd: CreateUserCommand =>
               Effect.reply(cmd.replyTo)(UserCommandFailed(cmd.userId, "User already exists"))
 
             case retrieve: UserRetrievalCommand =>
-              println(state)
               Effect.reply(retrieve.replyTo)(UserInfo(state.userId, state))
 
           }

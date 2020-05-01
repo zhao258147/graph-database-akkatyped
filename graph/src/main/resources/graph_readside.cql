@@ -1,11 +1,12 @@
 CREATE KEYSPACE graph WITH replication = {'class': 'SimpleStrategy', 'replication_factor': '1'}  AND durable_writes = true;
 
 CREATE TABLE graph.nodes (
-    type text,
+    company text,
     id text,
+    type text,
     tags map<varchar, int>,
     properties map<varchar, varchar>,
-    PRIMARY KEY (type, id)
+    PRIMARY KEY (company, id)
 ) WITH CLUSTERING ORDER BY (id ASC)
     AND bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
@@ -22,11 +23,13 @@ CREATE TABLE graph.nodes (
     AND speculative_retry = '99PERCENTILE';
 
 CREATE TABLE graph.clicks (
-    type text,
+    company text,
     id text,
     ts bigint,
+    type text,
+    tags map<varchar, int>,
     clicks int,
-    PRIMARY KEY (type, id, ts)
+    PRIMARY KEY (company, id, ts)
 ) WITH CLUSTERING ORDER BY (id ASC, ts ASC)
     AND bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}

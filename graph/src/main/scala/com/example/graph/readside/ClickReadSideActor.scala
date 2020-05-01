@@ -11,20 +11,29 @@ import akka.{Done, NotUsed}
 import com.datastax.driver.core._
 import com.example.graph.GraphNodeEntity.GraphNodeClickUpdated
 import com.example.graph.config.ReadSideConfig
+import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
 
+import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContextExecutor, Future}
 
 object ClickReadSideActor {
   val ClickUpdateEventName = "clickupdate"
 
+  @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+  @JsonSubTypes(
+    Array(
+      new JsonSubTypes.Type(value = classOf[ClickReadSideActorOffset], name = "ClickReadSideActorOffset"),
+      new JsonSubTypes.Type(value = classOf[NodeClickInfo], name = "NodeClickInfo"),
+      new JsonSubTypes.Type(value = classOf[OnStartNodeClickInfo], name = "OnStartNodeClickInfo"),
+      new JsonSubTypes.Type(value = classOf[TrendingNodesCommand], name = "TrendingNodesCommand")))
   sealed trait ClickStatCommands
 
   case class ClickReadSideActorOffset(offset: Offset) extends ClickStatCommands
 
-  case class NodeClickInfo(nodeId: String, nodeType: String, ts: Long, clicks: Int) extends ClickStatCommands
+  case class NodeClickInfo(company: String, nodeId: String, tags: Set[String], ts: Long, clicks: Int) extends ClickStatCommands
 
   case class OnStartNodeClickInfo(list: Seq[NodeClickInfo]) extends ClickStatCommands
-  case class TrendingNodesCommand(types: List[String], replyTo: ActorRef[TrendingNodesResponse]) extends ClickStatCommands
+  case class TrendingNodesCommand(tags: Set[String], replyTo: ActorRef[TrendingNodesResponse]) extends ClickStatCommands
 
   case class TrendingNodesResponse(overallRanking: Seq[String], rankingByType: Map[String, Seq[String]])
 
@@ -36,18 +45,21 @@ object ClickReadSideActor {
       implicit val system: ActorSystem[Nothing] = context.system
       implicit val ec: ExecutionContextExecutor = system.executionContext
 
+      println("ClickReadSideActor started")
       val queries = PersistenceQuery(system).readJournalFor[CassandraReadJournal](CassandraReadJournal.Identifier)
 
-      val clickInsertStatement = session.prepare(s"INSERT INTO graph.clicks(type, id, ts, clicks) VALUES (?, ?, ?, ?)")
+      val clickInsertStatement = session.prepare(s"INSERT INTO graph.clicks(company, id, ts, type, tags, clicks) VALUES (?, ?, ?, ?, ?, ?)")
       val clickInsertBinder =
         (e: EventEnvelope, statement: PreparedStatement) => {
           e.event match {
             case elemToInsert: GraphNodeClickUpdated =>
-              println(elemToInsert)
+              context.log.debug(elemToInsert.toString)
               statement.bind(
-                elemToInsert.nodeType,
+                elemToInsert.companyId,
                 elemToInsert.nodeId,
                 new java.lang.Long(elemToInsert.ts),
+                elemToInsert.nodeType,
+                if(elemToInsert.tags.isEmpty) null else mapAsJavaMap(elemToInsert.tags),
                 new Integer(elemToInsert.clicks)
               )
             case _ =>
@@ -62,15 +74,8 @@ object ClickReadSideActor {
         clickInsertBinder
       )
 
-      val offsetStmt = new SimpleStatement(s"SELECT * FROM graph.read_side_offsets WHERE tag = '$ClickUpdateEventName'").setFetchSize(1)
-
-      val offsetQuery = CassandraSource(offsetStmt)
-        .map(row => Offset.timeBasedUUID(row.getUUID("offset")))
-        .runWith(Sink.seq).map(_.headOption)
-
-      offsetQuery.foreach {
+      offsetManagement.offsetQuery(ClickUpdateEventName).foreach {
         case Some(o) =>
-          println(o)
           context.self ! ClickReadSideActorOffset(o)
         case None =>
           context.self ! ClickReadSideActorOffset(NoOffset)
@@ -82,8 +87,9 @@ object ClickReadSideActor {
       val clicksQuery = CassandraSource(clicksStmt)
         .map { row =>
           NodeClickInfo(
+            row.getString("company"),
             row.getString("id"),
-            row.getString("type"),
+            row.getMap("tags", classOf[String], classOf[java.lang.Integer]).asScala.toMap.keySet,
             row.getLong("ts"),
             row.getInt("clicks")
           )
@@ -101,12 +107,12 @@ object ClickReadSideActor {
 
             collectClickStat(click +: newList)
 
-          case TrendingNodesCommand(types, replyTo) =>
-            val result = types.foldLeft(Map.empty[String, Seq[String]]){
+          case TrendingNodesCommand(tags, replyTo) =>
+            val result = tags.foldLeft(Map.empty[String, Seq[String]]){
               case (acc, nodeType) =>
                 val unsortedNodeTypeList: Map[String, Int] = list.foldLeft(Map.empty[String, Int]){
-                  case (listAcc, nodeClick) if nodeClick.nodeType == nodeType =>
-                    listAcc + (nodeClick.nodeId -> listAcc.getOrElse(nodeClick.nodeId, nodeClick.clicks))
+                  case (listAcc, nodeClick) if (nodeClick.tags & tags).nonEmpty =>
+                    listAcc + (nodeClick.nodeId -> (listAcc.getOrElse(nodeClick.nodeId, 0) + nodeClick.clicks))
                   case (listAcc, _) =>
                     listAcc
                 }
@@ -116,13 +122,10 @@ object ClickReadSideActor {
 
             val unsortedOverallList: Map[String, Int] = list.foldLeft(Map.empty[String, Int]){
               case (listAcc, nodeClick) =>
-                listAcc + (nodeClick.nodeId -> listAcc.getOrElse(nodeClick.nodeId, nodeClick.clicks))
+                listAcc + (nodeClick.nodeId -> (listAcc.getOrElse(nodeClick.nodeId, 0) + nodeClick.clicks))
             }
-            val sortedOverallList = unsortedOverallList.toSeq.sortWith(_._2 > _._2).map(_._1).take(5)
+            val sortedOverallList = unsortedOverallList.toSeq.sortWith(_._2 > _._2).map(_._1).take(20)
 
-            println("TrendingNodesResponse " * 10)
-            println(list)
-            println(result)
             replyTo ! TrendingNodesResponse(sortedOverallList, result)
             Behaviors.same
         }
@@ -130,8 +133,7 @@ object ClickReadSideActor {
       def waitingForInitialLoad: Behavior[ClickStatCommands] =
         Behaviors.receiveMessagePartial {
           case OnStartNodeClickInfo(list) =>
-            println("OnStartNodeClickInfo " * 10)
-            println(list)
+            context.log.debug(list.toString)
             buffer.unstashAll(collectClickStat(list))
           case x =>
             buffer.stash(x)
@@ -141,19 +143,19 @@ object ClickReadSideActor {
       val waitingForOffset: Behavior[ClickStatCommands] =
         Behaviors.receiveMessagePartial {
           case ClickReadSideActorOffset(offset) =>
-            println("click readside" * 10)
+            println(offset)
             val createdStream: Source[EventEnvelope, NotUsed] = queries.eventsByTag(ClickUpdateEventName, offset)
             val stream: Future[Done] = createdStream
               .map {
                 case ee@EventEnvelope(_, _, _, value: GraphNodeClickUpdated) =>
-                  context.self ! NodeClickInfo(value.nodeId, value.nodeType, value.ts, value.clicks)
+                  context.self ! NodeClickInfo(value.companyId, value.nodeId, value.tags.keySet, value.ts, value.clicks)
                   ee
                 case ee =>
                   ee
               }
               .via(saveClickFlow)
               .via(offsetManagement.saveOffsetFlow(readSideConfig.producerParallelism, ClickUpdateEventName))
-              .runWith(Sink.foreach(println)) //TODO: for failures, move on to the next message
+              .runWith(Sink.ignore) //TODO: for failures, move on to the next message
 
             buffer.unstashAll(waitingForInitialLoad)
 

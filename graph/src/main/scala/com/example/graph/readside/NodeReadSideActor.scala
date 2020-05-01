@@ -2,84 +2,159 @@ package com.example.graph.readside
 
 import akka.NotUsed
 import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.{ActorSystem, Behavior}
+import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
 import akka.persistence.cassandra.query.scaladsl.CassandraReadJournal
 import akka.persistence.query._
 import akka.stream.alpakka.cassandra.CassandraBatchSettings
 import akka.stream.alpakka.cassandra.scaladsl.{CassandraFlow, CassandraSource}
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import com.datastax.driver.core._
-import com.example.graph.GraphNodeEntity.GraphNodeUpdated
+import com.example.graph.GraphNodeEntity._
 import com.example.graph.config.ReadSideConfig
+import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
 
+import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContextExecutor
 
 object NodeReadSideActor {
   val NodeUpdateEventName = "nodeupdate"
-  case class ReadSideActorOffset(offset: Offset)
+
+  case class NodeInfo(company: String, nodeId: String, nodeType: String, tags: Tags)
+
+  @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+  @JsonSubTypes(
+    Array(
+      new JsonSubTypes.Type(value = classOf[ReadSideActorOffset], name = "ReadSideActorOffset"),
+      new JsonSubTypes.Type(value = classOf[RetrieveAllNodes], name = "RetrieveAllNodes"),
+      new JsonSubTypes.Type(value = classOf[NodeInformationUpdate], name = "NodeInformationUpdate"),
+      new JsonSubTypes.Type(value = classOf[RelatedNodeQuery], name = "RelatedNodeQuery")))
+  sealed trait NodeReadSideCommand
+
+  case class ReadSideActorOffset(offset: Offset) extends NodeReadSideCommand
+  case class RetrieveAllNodes(list: Seq[NodeInfo]) extends NodeReadSideCommand
+  case class NodeInformationUpdate(node: NodeInfo) extends NodeReadSideCommand
+  case class RelatedNodeQuery(tags: Tags, replyTo: ActorRef[RelatedNodeQueryResponse]) extends NodeReadSideCommand
+
+  case class RelatedNodeQueryResponse(list: Seq[NodeInfo])
 
   def ReadSideActorBehaviour(
     readSideConfig: ReadSideConfig,
     offsetManagement: OffsetManagement
-  )(implicit session: Session): Behavior[ReadSideActorOffset] = Behaviors.setup[ReadSideActorOffset] { context =>
-    implicit val system: ActorSystem[Nothing] = context.system
-    implicit val ec: ExecutionContextExecutor = system.executionContext
+  )(implicit session: Session): Behavior[NodeReadSideCommand] = Behaviors.withStash(100) { buffer =>
+    Behaviors.setup[NodeReadSideCommand] { context =>
+      implicit val system: ActorSystem[Nothing] = context.system
+      implicit val ec: ExecutionContextExecutor = system.executionContext
 
-    val queries = PersistenceQuery(system).readJournalFor[CassandraReadJournal](CassandraReadJournal.Identifier)
+      val queries = PersistenceQuery(system).readJournalFor[CassandraReadJournal](CassandraReadJournal.Identifier)
 
-    val nodeInsertStatement = session.prepare(s"INSERT INTO graph.nodes(type, id, tags, properties) VALUES (?, ?, ?, ?)")
-    val nodeInsertBinder =
-      (e: EventEnvelope, statement: PreparedStatement) => {
-        import scala.collection.JavaConverters.mapAsJavaMap
-        e.event match {
-          case elemToInsert: GraphNodeUpdated =>
-            println(elemToInsert)
-            statement.bind(
-              elemToInsert.nodeType,
-              elemToInsert.id,
-              if(elemToInsert.tags.isEmpty) null else mapAsJavaMap(elemToInsert.tags),
-              if(elemToInsert.properties.isEmpty) null else mapAsJavaMap(elemToInsert.properties)
-            )
-          case _ =>
-            throw new RuntimeException("wrong message")
+      val nodeInsertStatement = session.prepare(s"INSERT INTO graph.nodes(company, id, type, tags, properties) VALUES (?, ?, ?, ?, ?)")
+      val nodeInsertBinder =
+        (e: EventEnvelope, statement: PreparedStatement) => {
+          import scala.collection.JavaConverters.mapAsJavaMap
+          e.event match {
+            case elemToInsert: GraphNodeUpdated =>
+              println(elemToInsert)
+              statement.bind(
+                elemToInsert.companyId,
+                elemToInsert.id,
+                elemToInsert.nodeType,
+                if (elemToInsert.tags.isEmpty) null else mapAsJavaMap(elemToInsert.tags),
+                if (elemToInsert.properties.isEmpty) null else mapAsJavaMap(elemToInsert.properties)
+              )
+            case _ =>
+              throw new RuntimeException("wrong message")
+          }
         }
+      val settings: CassandraBatchSettings = CassandraBatchSettings()
+
+      val saveNodeFlow: Flow[EventEnvelope, EventEnvelope, NotUsed] = CassandraFlow.createWithPassThrough(
+        readSideConfig.producerParallelism,
+        nodeInsertStatement,
+        nodeInsertBinder
+      )
+
+      offsetManagement.offsetQuery(NodeUpdateEventName).foreach {
+        case Some(o) =>
+          context.self ! ReadSideActorOffset(o)
+        case None =>
+          context.self ! ReadSideActorOffset(NoOffset)
       }
-    val settings: CassandraBatchSettings = CassandraBatchSettings()
 
-    val saveNodeFlow: Flow[EventEnvelope, EventEnvelope, NotUsed] = CassandraFlow.createWithPassThrough(
-      readSideConfig.producerParallelism,
-      nodeInsertStatement,
-      nodeInsertBinder
-    )
+      val nodesStmt = new SimpleStatement(s"SELECT * FROM graph.nodes")
 
-    val stmt = new SimpleStatement(s"SELECT * FROM graph.read_side_offsets WHERE tag = '$NodeUpdateEventName'").setFetchSize(1)
+      val nodesQuery = CassandraSource(nodesStmt)
+        .map { row =>
+          NodeInfo(
+            row.getString("company"),
+            row.getString("id"),
+            row.getString("type"),
+            row.getMap("tags", classOf[String], classOf[java.lang.Integer])
+              .asScala.toMap.mapValues(_.toInt)
+          )
+        }
+        .runWith(Sink.seq)
 
-    val offsetQuery = CassandraSource(stmt)
-      .map(row => Offset.timeBasedUUID(row.getUUID("offset")))
-      .runWith(Sink.seq).map(_.headOption)
+      nodesQuery.foreach {
+        context.self ! RetrieveAllNodes(_)
+      }
 
-    offsetQuery.foreach {
-      case Some(o) =>
-        println(o)
-        context.self ! ReadSideActorOffset(o)
-      case None =>
-        context.self ! ReadSideActorOffset(NoOffset)
+      def collectNewNode(list: Seq[NodeInfo]): Behavior[NodeReadSideCommand] =
+        Behaviors.receiveMessagePartial{
+          case NodeInformationUpdate(node) =>
+            collectNewNode(node +: list)
+
+          case RelatedNodeQuery(tags, replyTo) =>
+            val visitorTotalWeight = tags.values.sum + 1
+
+            val recommended: Seq[NodeInfo] = list.foldLeft(Seq.empty[(NodeInfo, Int)]){
+              case (acc, curNode) =>
+                val weightTotal = curNode.tags.foldLeft(0){
+                  case (weightAcc, (label, weight)) =>
+                    weightAcc + (tags.getOrElse(label, 0) * (weight.toDouble / visitorTotalWeight)).toInt
+                }
+                (curNode -> weightTotal) +: acc
+            }.sortWith(_._2 > _._2).map(_._1)
+
+            replyTo ! RelatedNodeQueryResponse(recommended.take(20))
+            Behaviors.same
+        }
+
+      val waitingForInitialLoad: Behavior[NodeReadSideCommand] =
+        Behaviors.receiveMessagePartial{
+          case RetrieveAllNodes(list) =>
+            context.log.debug(list.toString)
+            buffer.unstashAll(collectNewNode(list))
+          case x =>
+            buffer.stash(x)
+            Behaviors.same
+        }
+
+      val waiting: Behavior[NodeReadSideCommand] =
+        Behaviors.receiveMessage {
+          case ReadSideActorOffset(offset) =>
+            println(offset)
+            val createdStream: Source[EventEnvelope, NotUsed] = queries.eventsByTag(NodeUpdateEventName, offset)
+            createdStream
+              .map {
+                case ee@EventEnvelope(_, _, _, value: GraphNodeUpdated) =>
+                  println(value)
+                  context.self ! NodeInformationUpdate(NodeInfo(value.companyId, value.id, value.nodeType, value.tags))
+                  ee
+                case ee =>
+                  ee
+              }
+              .via(saveNodeFlow)
+              .via(offsetManagement.saveOffsetFlow(readSideConfig.producerParallelism, NodeUpdateEventName))
+              .runWith(Sink.ignore) //TODO: move on to the next message
+
+            buffer.unstashAll(waitingForInitialLoad)
+
+          case x =>
+            buffer.stash(x)
+            Behaviors.same
+        }
+
+      waiting
     }
-
-
-    val waiting: Behavior[ReadSideActorOffset] =
-      Behaviors.receiveMessage {
-        case ReadSideActorOffset(offset) =>
-          println("x" * 100)
-          val createdStream: Source[EventEnvelope, NotUsed] = queries.eventsByTag(NodeUpdateEventName, offset)
-          createdStream
-            .via(saveNodeFlow)
-            .via(offsetManagement.saveOffsetFlow(readSideConfig.producerParallelism, NodeUpdateEventName))
-            .runWith(Sink.foreach(println)) //TODO: move on to the next message
-
-          Behaviors.empty
-      }
-
-    waiting
   }
 }

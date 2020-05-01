@@ -1,0 +1,112 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: '11'
+  creationTimestamp: '2020-04-28T16:32:58Z'
+  generation: 13
+  labels:
+    app: user
+  name: user
+  namespace: default
+  resourceVersion: '19060904'
+  selfLink: /apis/apps/v1/namespaces/default/deployments/user
+  uid: 54c405ca-297a-486b-9155-5389831c1f5e
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: user
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: user
+    spec:
+      containers:
+        - env:
+            - name: LANG
+              value: C.UTF-8
+            - name: JAVA_HOME
+              value: /usr/local/openjdk-8
+            - name: JAVA_BASE_URL
+              value: >-
+                https://github.com/AdoptOpenJDK/openjdk8-upstream-binaries/releases/download/jdk8u252-b09/OpenJDK8U-jdk_
+            - name: SEED_NODE
+              value: 192.168.0.171
+            - name: JAVA_OPTS
+              value: '-Dconfig.resource=application-dev.conf'
+            - name: CASSANDRA_PASSWORD
+              value: nUqt36Z2sWW0
+            - name: CASSANDRA_CONTACT_POINTS
+              value: 172.19.4.31
+            - name: ELASTICSEARCH_HOST
+              value: 172.19.10.82
+          image: 'registry-vpc.cn-beijing.aliyuncs.com/firsttest/user:0.2.2-SNAPSHOT'
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: health/alive
+              port: 8558
+              scheme: HTTP
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: user
+          ports:
+            - containerPort: 25520
+              protocol: TCP
+            - containerPort: 9090
+              protocol: TCP
+            - containerPort: 8558
+              protocol: TCP
+            - containerPort: 8081
+              protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: health/ready
+              port: 8558
+              scheme: HTTP
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            requests:
+              cpu: '1'
+              memory: 2Gi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+status:
+  availableReplicas: 1
+  conditions:
+    - lastTransitionTime: '2020-04-29T17:14:49Z'
+      lastUpdateTime: '2020-04-29T17:14:49Z'
+      message: Deployment has minimum availability.
+      reason: MinimumReplicasAvailable
+      status: 'True'
+      type: Available
+    - lastTransitionTime: '2020-04-28T16:32:58Z'
+      lastUpdateTime: '2020-04-29T17:14:49Z'
+      message: ReplicaSet "user-7ffbc4fc68" has successfully progressed.
+      reason: NewReplicaSetAvailable
+      status: 'True'
+      type: Progressing
+  observedGeneration: 13
+  readyReplicas: 1
+  replicas: 1
+  updatedReplicas: 1

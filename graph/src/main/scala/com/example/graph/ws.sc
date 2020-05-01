@@ -1,1 +1,1 @@
-List(1,2,3).drop(2)
+println(Map(1 -> "s").toString)

@@ -5,6 +5,8 @@ import akka.cluster.sharding.typed.ClusterShardingSettings
 import akka.cluster.sharding.typed.scaladsl.{ClusterSharding, Entity, EntityTypeKey}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Route
+import akka.management.cluster.bootstrap.ClusterBootstrap
+import akka.management.scaladsl.AkkaManagement
 import akka.persistence.typed.PersistenceId
 import akka.stream.ActorMaterializer
 import com.datastax.driver.core.{Cluster, Session}
@@ -26,12 +28,16 @@ object Main extends App {
   implicit val materializer: ActorMaterializer = ActorMaterializer()
   implicit val ec: ExecutionContextExecutor = system.dispatcher
 
+  AkkaManagement(system).start()
+  ClusterBootstrap(system).start()
+
   implicit val typedSystem: akka.actor.typed.ActorSystem[Nothing] = system.toTyped
 
   val config = conf.as[UserConfig]("UserConfig")
   implicit val session: Session = Cluster.builder
     .addContactPoint(config.cassandraConfig.contactPoints)
     .withPort(config.cassandraConfig.port)
+    .withCredentials(config.cassandraConfig.username, config.cassandraConfig.password)
     .build
     .connect()
 

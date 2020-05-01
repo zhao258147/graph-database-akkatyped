@@ -46,6 +46,7 @@ val commonDependencies = Seq(
   akkaManagementClusterHttp,
   akkaManagementClusterBootstrap,
   akkaDiscovery,
+  akkaDiscoveryK8sApi,
   akkaSerialization,
   akkaStreams,
   alpakkaCassandra,
@@ -63,18 +64,21 @@ lazy val `graph` = (project in file("graph"))
     name := "graph",
     credentials in ThisBuild += Credentials(Path.userHome / ".lightbend" / "commercial.credentials"),
     resolvers in ThisBuild += "lightbend-commercial-maven" at "https://repo.lightbend.com/commercial-releases",
-    version := "0.2.1-SNAPSHOT",
-    scalaVersion := "2.12.8",
+    version := "0.3.0-SNAPSHOT",
+    scalaVersion := "2.12.7",
     cinnamon in run := true,
-    dockerExposedPorts ++= Seq(9001, 9999, 2551),
+    dockerExposedPorts ++= Seq(8081, 25520, 8558, 9001),
     dockerRepository := Some("registry.cn-beijing.aliyuncs.com"),
     dockerUsername := Some("firsttest"),
     libraryDependencies ++= commonDependencies,
     libraryDependencies ++= Seq(
       "com.github.dnvriend" %% "akka-persistence-jdbc" % "3.5.2",
       Cinnamon.library.cinnamonAkkaTyped,
-      Cinnamon.library.cinnamonPrometheus,
-      Cinnamon.library.cinnamonPrometheusHttpServer
+      Cinnamon.library.cinnamonAkkaPersistence,
+      Cinnamon.library.cinnamonAkkaHttp,
+      Cinnamon.library.cinnamonCHMetrics3,
+      Cinnamon.library.cinnamonCHMetricsElasticsearchReporter,
+      Cinnamon.library.cinnamonSlf4jEvents
     ),
     dependencyOverrides += "com.google.guava" % "guava" % "19.0",
     PB.targets in Compile := Seq(
@@ -89,10 +93,12 @@ lazy val `user` = (project in file("user"))
     name := "user",
     credentials in ThisBuild += Credentials(Path.userHome / ".lightbend" / "commercial.credentials"),
     resolvers in ThisBuild += "lightbend-commercial-maven" at "https://repo.lightbend.com/commercial-releases",
-    version := "0.1-SNAPSHOT",
+    version := "0.3.0-SNAPSHOT",
     scalaVersion := "2.12.8",
     cinnamon in run := false,
-    dockerExposedPorts ++= Seq(9001, 9999, 2551),
+    dockerExposedPorts ++= Seq(8081, 25520, 8558),
+    dockerRepository := Some("registry.cn-beijing.aliyuncs.com"),
+    dockerUsername := Some("firsttest"),
     libraryDependencies ++= commonDependencies,
     dependencyOverrides += "com.google.guava" % "guava" % "19.0",
     PB.targets in Compile := Seq(
@@ -107,16 +113,19 @@ lazy val `saga` = (project in file("saga"))
     name := "saga",
     credentials in ThisBuild += Credentials(Path.userHome / ".lightbend" / "commercial.credentials"),
     resolvers in ThisBuild += "lightbend-commercial-maven" at "https://repo.lightbend.com/commercial-releases",
-    version := "0.1-SNAPSHOT",
+    version := "0.3.0-SNAPSHOT",
     scalaVersion := "2.12.8",
     cinnamon in run := false,
+    dockerExposedPorts ++= Seq(8081, 25520, 8558),
+    dockerRepository := Some("registry.cn-beijing.aliyuncs.com"),
+    dockerUsername := Some("firsttest"),
     libraryDependencies ++= commonDependencies,
     dependencyOverrides += "com.google.guava" % "guava" % "19.0",
     PB.targets in Compile := Seq(
       scalapb.gen() -> (sourceManaged in Compile).value
     )
   )
-).enablePlugins(Cinnamon).dependsOn(`user`, `graph`)
+).enablePlugins(JavaAppPackaging).enablePlugins(DockerPlugin).enablePlugins(Cinnamon).dependsOn(`user`, `graph`)
 
 lazy val gatlingVersion = "3.2.1"
 val `benchmarks` = Project(id = "benchmarks",
