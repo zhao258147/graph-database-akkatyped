@@ -6,13 +6,13 @@ import akka.cluster.sharding.typed.ShardingEnvelope
 import com.datastax.driver.core.Session
 import com.example.graph.GraphNodeEntity.{EdgeQuery, EdgeQueryResult, GraphNodeCommand, GraphNodeCommandReply, NodeQuery, NodeQueryResult}
 
-object WeightQueryActor {
-  sealed trait WeightQueryCommand
-  case class WeightQuery(nodeIds: Set[String], replyTo: ActorRef[WeightQueryReply]) extends WeightQueryCommand
-  case class WrappedNodeEntityResponse(nodeEntityResponse: GraphNodeCommandReply) extends WeightQueryCommand
+object NodesQueryActor {
+  sealed trait NodesQueryCommand
+  case class NodesQuery(nodeIds: Set[String], replyTo: ActorRef[NodesQueryReply]) extends NodesQueryCommand
+  case class WrappedNodeEntityResponse(nodeEntityResponse: GraphNodeCommandReply) extends NodesQueryCommand
 
-  sealed trait WeightQueryReply
-  case class Weights(collected: Set[NodeQueryResult]) extends WeightQueryReply
+  sealed trait NodesQueryReply
+  case class NodesResult(collected: Set[NodeQueryResult]) extends NodesQueryReply
 
   val names = Set(
     "(0H0)",
@@ -118,27 +118,27 @@ object WeightQueryActor {
 
   def weightQueryBehaviour(
     graphCordinator: ActorRef[ShardingEnvelope[GraphNodeCommand[GraphNodeCommandReply]]],
-  )(implicit session: Session): Behavior[WeightQueryCommand] = Behaviors.setup[WeightQueryCommand] { context =>
+  )(implicit session: Session): Behavior[NodesQueryCommand] = Behaviors.setup[NodesQueryCommand] { context =>
     val nodeEntityResponseMapper: ActorRef[GraphNodeCommandReply] =
       context.messageAdapter(rsp => WrappedNodeEntityResponse(rsp))
 
-    def collectResp(collected: Set[NodeQueryResult], replyTo: ActorRef[WeightQueryReply]): Behavior[WeightQueryCommand] =
+    def collectResp(collected: Set[NodeQueryResult], nodeIds: Set[String], replyTo: ActorRef[NodesQueryReply]): Behavior[NodesQueryCommand] =
       Behaviors.receiveMessagePartial {
         case WrappedNodeEntityResponse(rsp: NodeQueryResult) =>
           val cur = collected + rsp
-          if(cur.size == names.size) {
-            replyTo ! Weights(cur)
+          if(cur.size == nodeIds.size) {
+            replyTo ! NodesResult(cur)
             Behaviors.stopped
-          } else collectResp(cur, replyTo)
+          } else collectResp(cur, nodeIds, replyTo)
       }
 
-    val initial: Behavior[WeightQueryCommand] =
+    val initial: Behavior[NodesQueryCommand] =
       Behaviors.receiveMessagePartial {
-        case WeightQuery(nodeIds, replyTo) =>
+        case NodesQuery(nodeIds, replyTo) =>
           nodeIds.foreach{ node =>
             graphCordinator ! ShardingEnvelope(node, NodeQuery(node, nodeEntityResponseMapper))
           }
-          collectResp(Set.empty, replyTo)
+          collectResp(Set.empty, nodeIds, replyTo)
       }
 
     initial

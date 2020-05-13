@@ -110,53 +110,33 @@
           console.log(nodes[i])
           
           g.nodes.push({
-            id: nodes[i].userId,
-            label: nodes[i].userId,
-            size: nodes[i].viewed.length,
+            id: nodes[i].nodeId,
+            label: nodes[i].nodeId,
+            size: 1,
             color: '#000',
             hits: 1,
-            x: nodes[i].properties.x * 5,
-            y: nodes[i].properties.y * 5,
-            tags: nodes[i].labels
+            x: nodes[i].properties.x * 10,
+            y: nodes[i].properties.y * 10,
+            tags: nodes[i].tags
+
           });
 
-          for (var property in nodes[i].similarUsers) {
-            if (nodes[i].similarUsers.hasOwnProperty(property)) {
-              <!--var a = 0;-->
-              <!--var exists = false;-->
-              <!--for (a = 0; a < nodes.length; a++) {-->
-                <!--if(nodes[a].user-->
-              <!--}-->
-              if(property != "u00") {
-                g.edges.push({
-                  id: nodes[i].userId + "-" + property + "-" + nodes[i].similarUsers[property],
-                  source: nodes[i].userId ,
-                  target: property,
-                  size: nodes[i].similarUsers[property],
-                  type: 'curve',
-                  color: '#000',
-                  hover_color: '#f00',
-                  connections: 1
-                });
-              }
-
+          if(nodes[i].visitors.indexOf(userId) >=0 || allUsers){
+            var a = 0;
+            for(a = 0; a < nodes[i].edges.length; a++){
+              console.log(nodes[i].edges[a].direction.nodeId)
+              g.edges.push({
+                id: nodes[i].nodeId + "-" + nodes[i].edges[a].direction.nodeId + " " + nodes[i].edges[a].weight,
+                source: nodes[i].nodeId ,
+                target: nodes[i].edges[a].direction.nodeId,
+                size: nodes[i].edges[a].weight,
+                type: 'curve',
+                color: '#000',
+                hover_color: '#f00',
+                connections: 1
+              });
             }
           }
-
-          <!--var a = 0;-->
-          <!--for(a = 0; a < nodes[i].similarUsers.length; a++){-->
-            <!--console.log(nodes[i].similarUsers[a])-->
-            <!--g.edges.push({-->
-              <!--id: nodes[i].userId + "-" + nodes[i].similarUsers[a],-->
-              <!--source: nodes[i].userId ,-->
-              <!--target: nodes[i].similarUsers[a],-->
-              <!--size: 1,-->
-              <!--type: 'curve',-->
-              <!--color: '#000',-->
-              <!--hover_color: '#f00',-->
-              <!--connections: 1-->
-            <!--});-->
-          <!--}-->
         }
 
 
@@ -283,8 +263,7 @@
         // document.getElementById("demo").innerHTML = this.responseText;
       }
     };
-    <!--xhttp.open("GET", "http://localhost:8082/api/query", true);-->
-    xhttp.open("GET", "http://39.97.181.51:8081/api/query", true);
+    xhttp.open("GET", "http://localhost:8081/api/graph/edges", true);
     xhttp.send();
 
 

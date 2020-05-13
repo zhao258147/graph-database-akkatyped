@@ -35,7 +35,7 @@ object ClickReadSideActor {
   case class OnStartNodeClickInfo(list: Seq[NodeClickInfo]) extends ClickStatCommands
   case class TrendingNodesCommand(tags: Set[String], replyTo: ActorRef[TrendingNodesResponse]) extends ClickStatCommands
 
-  case class TrendingNodesResponse(overallRanking: Seq[String], rankingByType: Map[String, Seq[String]])
+  case class TrendingNodesResponse(overallRanking: Map[String, Int], rankingByType: Map[String, Seq[(String, Int)]])
 
   def behaviour(
     readSideConfig: ReadSideConfig,
@@ -108,7 +108,7 @@ object ClickReadSideActor {
             collectClickStat(click +: newList)
 
           case TrendingNodesCommand(tags, replyTo) =>
-            val result = tags.foldLeft(Map.empty[String, Seq[String]]){
+            val result = tags.foldLeft(Map.empty[String, Seq[(String, Int)]]){
               case (acc, nodeType) =>
                 val unsortedNodeTypeList: Map[String, Int] = list.foldLeft(Map.empty[String, Int]){
                   case (listAcc, nodeClick) if (nodeClick.tags & tags).nonEmpty =>
@@ -116,7 +116,7 @@ object ClickReadSideActor {
                   case (listAcc, _) =>
                     listAcc
                 }
-                val sortedList = unsortedNodeTypeList.toSeq.sortWith(_._2 > _._2).map(_._1).take(5)
+                val sortedList = unsortedNodeTypeList.toSeq.sortWith(_._2 > _._2).take(5)
                 acc + (nodeType -> sortedList)
             }
 
@@ -124,7 +124,7 @@ object ClickReadSideActor {
               case (listAcc, nodeClick) =>
                 listAcc + (nodeClick.nodeId -> (listAcc.getOrElse(nodeClick.nodeId, 0) + nodeClick.clicks))
             }
-            val sortedOverallList = unsortedOverallList.toSeq.sortWith(_._2 > _._2).map(_._1).take(20)
+            val sortedOverallList = unsortedOverallList.toSeq.sortWith(_._2 > _._2).take(20).toMap
 
             replyTo ! TrendingNodesResponse(sortedOverallList, result)
             Behaviors.same

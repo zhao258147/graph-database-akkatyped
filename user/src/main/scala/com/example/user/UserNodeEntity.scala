@@ -9,14 +9,29 @@ import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
 
 object UserNodeEntity {
   type UserId = String
-  case class LabelWeight(weight: Int, tag: String)
+  val NumberOfSimilarUsers = 30
+  val NumberOfViewsToCheck = 30
+  val LabelWeightFilter = 150
+  val NodeBookmarkBias = 5
+  val UserBookmarkBias = 2
+  val NodeVisitBias = 1
+  val UserStateErrorMessage = "User entity not in the right state"
+
+  case class UserIdRecoMethod(userId: String, method: String, confidence: Int)
 
   @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
   @JsonSubTypes(
     Array(
       new JsonSubTypes.Type(value = classOf[CreateUserCommand], name = "CreateUserCommand"),
       new JsonSubTypes.Type(value = classOf[UpdateUserCommand], name = "UpdateUserCommand"),
-      new JsonSubTypes.Type(value = classOf[NodeVisitRequest], name = "NodeVisitRequest")
+      new JsonSubTypes.Type(value = classOf[UpdateUserPropertiesCommand], name = "UpdateUserPropertiesCommand"),
+      new JsonSubTypes.Type(value = classOf[NodeVisitRequest], name = "NodeVisitRequest"),
+      new JsonSubTypes.Type(value = classOf[UserHistoryRetrivalRequest], name = "UserHistoryRetrivalRequest"),
+      new JsonSubTypes.Type(value = classOf[NodeBookmarkRequest], name = "NodeBookmarkRequest"),
+      new JsonSubTypes.Type(value = classOf[UserBookmarkRequest], name = "UserBookmarkRequest"),
+      new JsonSubTypes.Type(value = classOf[BookmarkedByRequest], name = "BookmarkedByRequest"),
+      new JsonSubTypes.Type(value = classOf[UserRetrievalCommand], name = "UserRetrievalCommand"),
+      new JsonSubTypes.Type(value = classOf[NeighbouringViewsRequest], name = "NeighbouringViewsRequest")
     )
   )
   sealed trait UserCommand[Reply <: UserReply] {
@@ -24,39 +39,60 @@ object UserNodeEntity {
     def replyTo: ActorRef[Reply]
   }
 
-  case class CreateUserCommand(userId: UserId, userType: String, properties: Map[String, String], labels: Set[LabelWeight], replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
-  case class UpdateUserCommand(userId: UserId, userType: String, properties: Map[String, String], labels: Set[LabelWeight], replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
-  case class NodeVisitRequest(userId: UserId, nodeId: String, tags: Map[String, Int], recommended: Seq[String], popular: Seq[String], relevant: Seq[String], replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
+  case class CreateUserCommand(userId: UserId, userType: String, properties: Map[String, String], labels: Map[String, Int], replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
+  case class UpdateUserCommand(userId: UserId, userType: String, properties: Map[String, String], labels: Map[String, Int], replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
+  case class UpdateUserPropertiesCommand(userId: UserId, properties: Map[String, String], replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
+  case class NodeVisitRequest(userId: UserId, nodeId: String, tags: Map[String, Int], similarUsers: Map[String, Map[String, Int]], replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
+  case class UserHistoryRetrivalRequest(userId: UserId, replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
+  case class NodeBookmarkRequest(userId: UserId, nodeId: String, tags: Map[String, Int], replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
+  case class UserBookmarkRequest(userId: UserId, targetUserId: String, labels: Map[String, Int], replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
+  case class BookmarkedByRequest(userId: UserId, bookmarkUser: String, replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
   case class UserRetrievalCommand(userId: UserId, replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
+  case class NeighbouringViewsRequest(userId: UserId, replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
 
   @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
   @JsonSubTypes(
     Array(
       new JsonSubTypes.Type(value = classOf[UserCommandSuccess], name = "UserCommandSuccess"),
-      new JsonSubTypes.Type(value = classOf[UserRequestSuccess], name = "UserRequestSuccess"),
-      new JsonSubTypes.Type(value = classOf[UserCommandFailed], name = "UserCommandFailed")
+      new JsonSubTypes.Type(value = classOf[NodeVisitRequestSuccess], name = "NodeVisitRequestSuccess"),
+      new JsonSubTypes.Type(value = classOf[UserHistoryResponse], name = "UserHistoryResponse"),
+      new JsonSubTypes.Type(value = classOf[UserCommandFailed], name = "UserCommandFailed"),
+      new JsonSubTypes.Type(value = classOf[UserInfo], name = "UserInfo"),
+      new JsonSubTypes.Type(value = classOf[BookmarkedBySuccess], name = "BookmarkedBySuccess"),
+      new JsonSubTypes.Type(value = classOf[UserBookmarkSuccess], name = "UserBookmarkSuccess"),
+      new JsonSubTypes.Type(value = classOf[NodeBookmarkSuccess], name = "NodeBookmarkSuccess"),
+      new JsonSubTypes.Type(value = classOf[NeighbouringViews], name = "NeighbouringViews")
     )
   )
   sealed trait UserReply {
     val userId: UserId
   }
   case class UserCommandSuccess(userId: UserId) extends UserReply
-  case class UserRequestSuccess(userId: UserId, recommended: Seq[String], popular: Seq[String], relevant: Seq[String]) extends UserReply
+  case class NodeVisitRequestSuccess(userId: UserId, updatedLabels: Map[String, Int], neighbours: Set[UserId], recentViews: Seq[String]) extends UserReply
+  case class UserHistoryResponse(userId: UserId, neighbours: Set[UserId], viewed: Seq[String]) extends UserReply
   case class UserCommandFailed(userId: UserId, error: String) extends UserReply
-  case class UserInfo(userId: UserId, state: CreatedUserState) extends UserReply
+  case class UserInfo(userId: UserId, userType: String, properties: Map[String, String], labels: Map[String, Int], viewed: Seq[String], bookmarkedNodes: Set[String], bookmarkedUsers: Set[String], bookmarkedBy: Set[String], similarUsers: Map[String, Int]) extends UserReply
+  case class BookmarkedBySuccess(userId: UserId, labels: Map[String, Int]) extends UserReply
+  case class UserBookmarkSuccess(userId: UserId, labels: Map[String, Int], similarUsers: Set[String]) extends UserReply
+  case class NodeBookmarkSuccess(userId: UserId, nodeId: String, labels: Map[String, Int], similarUsers: Set[String]) extends UserReply
+  case class NeighbouringViews(userId: UserId, viewed: Seq[String]) extends UserReply
 
   @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
   @JsonSubTypes(
     Array(
-      new JsonSubTypes.Type(value = classOf[UserCreated], name = "UserCreated"),
       new JsonSubTypes.Type(value = classOf[UserUpdated], name = "UserUpdated"),
+      new JsonSubTypes.Type(value = classOf[NodeBookmarked], name = "NodeBookmarked"),
+      new JsonSubTypes.Type(value = classOf[UserBookmarked], name = "UserBookmarked"),
+      new JsonSubTypes.Type(value = classOf[BookmarkedBy], name = "BookmarkedBy"),
       new JsonSubTypes.Type(value = classOf[UserRequest], name = "UserRequest")
     )
   )
   sealed trait UserEvent
-  case class UserCreated(userId: UserId, userType: String, properties: Map[String, String], labels: Set[LabelWeight]) extends UserEvent
-  case class UserUpdated(userType: String, properties: Map[String, String], labels: Set[LabelWeight]) extends UserEvent
-  case class UserRequest(nodeId: String, tags: Map[String, Int]) extends UserEvent
+  case class UserUpdated(userId: UserId, userType: String, properties: Map[String, String], labels: Map[String, Int]) extends UserEvent
+  case class NodeBookmarked(userId: UserId, nodeId: String, tags: Map[String, Int], ts: Long) extends UserEvent
+  case class UserBookmarked(userId: UserId, targetUserId: String, labels: Map[String, Int], ts: Long) extends UserEvent
+  case class BookmarkedBy(userId: UserId, bookmarkUser: String, ts: Long) extends UserEvent
+  case class UserRequest(nodeId: String, tags: Map[String, Int], similarUsers: Map[String, Map[String, Int]]) extends UserEvent
 
   @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
   @JsonSubTypes(
@@ -71,9 +107,22 @@ object UserNodeEntity {
     userId: UserId,
     userType: String,
     properties: Map[String, String],
-    labels: Set[LabelWeight],
+    labels: Map[String, Int],
+    bookmarkedNodes: Map[String, NodeBookmarked],
+    bookmarkedUsers: Map[String, UserBookmarked],
+    bookmarkedBy: Map[String, BookmarkedBy],
+    similarUsers: Map[String, Map[String, Int]],
     viewed: Seq[String]
   ) extends UserState
+
+  private def rankSimilarUsers(withNewSimilarUsers: Map[String, Map[String, Int]], updatedLabels: Map[String, Int]) =
+    withNewSimilarUsers.map{
+      case (userId, labels) =>
+        userId -> updatedLabels.foldLeft(0){
+          case (acc, (label, labelWeight)) =>
+            acc + Math.min(labels.getOrElse(label, 0), labelWeight)
+        }
+    }.toSeq.sortWith(_._2 > _._2)
 
   private def commandHandler(context: ActorContext[UserCommand[UserReply]]): (UserState, UserCommand[UserReply]) => ReplyEffect[UserEvent, UserState] = {
     (state, command) =>
@@ -84,7 +133,7 @@ object UserNodeEntity {
           command match {
             case cmd: CreateUserCommand =>
               Effect
-                .persist(UserCreated(cmd.userId, cmd.userType, cmd.properties, cmd.labels))
+                .persist(UserUpdated(cmd.userId, cmd.userType, cmd.properties, cmd.labels))
                 .thenReply(cmd.replyTo)(_ => UserCommandSuccess(cmd.userId))
 
             case cmd =>
@@ -93,28 +142,75 @@ object UserNodeEntity {
 
         case state: CreatedUserState =>
           command match {
-            case update: UpdateUserCommand =>
-              Effect
-                .persist(UserUpdated(update.userType, update.properties, update.labels))
-                .thenReply(update.replyTo)(_ => UserCommandSuccess(update.userId))
-
-            case req: NodeVisitRequest =>
-              val viewed = state.viewed.take(20)
-              val rcmdFiltered = req.recommended.filterNot(viewed.contains)
-              val relatedFiltered = req.relevant.filterNot(viewed.contains)
-              val popularFiltered = req.popular.filterNot(viewed.contains)
-              val evt = UserRequest(req.nodeId, req.tags)
-              context.log.debug(evt.toString)
-              Effect
-                .persist(evt)
-                .thenReply(req.replyTo)(_ => UserRequestSuccess(req.userId, rcmdFiltered, relatedFiltered, popularFiltered))
-
             case cmd: CreateUserCommand =>
               Effect.reply(cmd.replyTo)(UserCommandFailed(cmd.userId, "User already exists"))
 
-            case retrieve: UserRetrievalCommand =>
-              Effect.reply(retrieve.replyTo)(UserInfo(state.userId, state))
+            case update: UpdateUserCommand =>
+              Effect
+                .persist(UserUpdated(update.userId, update.userType, update.properties, update.labels))
+                .thenReply(update.replyTo)(_ => UserCommandSuccess(update.userId))
 
+            case update: UpdateUserPropertiesCommand =>
+              Effect
+                .persist(UserUpdated(update.userId, state.userType, update.properties, state.labels))
+                .thenReply(update.replyTo)(_ => UserCommandSuccess(update.userId))
+
+            case req: NodeVisitRequest =>
+              val viewed = state.viewed.take(NumberOfViewsToCheck)
+              val evt = UserRequest(req.nodeId, req.tags, req.similarUsers.filterNot(_._1 == state.userId))
+              context.log.debug(evt.toString)
+              Effect
+                .persist(evt)
+                .thenReply(req.replyTo){
+                  case updatedState: CreatedUserState =>
+                    NodeVisitRequestSuccess(req.userId, updatedState.labels, updatedState.similarUsers.keySet, viewed)
+                  case _ =>
+                    UserCommandFailed(req.userId, UserStateErrorMessage)
+                }
+
+            case req: UserHistoryRetrivalRequest =>
+              val viewed: Seq[String] = state.viewed.take(NumberOfViewsToCheck)
+              Effect
+                .reply(req.replyTo)(UserHistoryResponse(state.userId, state.similarUsers.keySet, viewed))
+
+            case bookmark: NodeBookmarkRequest =>
+              Effect
+                .persist(NodeBookmarked(bookmark.userId, bookmark.nodeId, bookmark.tags, System.currentTimeMillis()))
+                .thenReply(bookmark.replyTo){
+                  case updatedState: CreatedUserState =>
+                    NodeBookmarkSuccess(bookmark.userId, bookmark.nodeId, updatedState.labels, updatedState.similarUsers.keySet)
+                  case _ =>
+                    UserCommandFailed(bookmark.userId, UserStateErrorMessage)
+                }
+
+            case bookmark: UserBookmarkRequest =>
+              Effect
+                .persist(UserBookmarked(bookmark.userId, bookmark.targetUserId, bookmark.labels, System.currentTimeMillis()))
+                .thenReply(bookmark.replyTo){
+                  case updatedState: CreatedUserState =>
+                    UserBookmarkSuccess(bookmark.userId, updatedState.labels, updatedState.similarUsers.keySet)
+                  case _ =>
+                    UserCommandFailed(bookmark.userId, UserStateErrorMessage)
+                }
+
+            case bookmark: BookmarkedByRequest =>
+              Effect
+                .persist(BookmarkedBy(bookmark.userId, bookmark.bookmarkUser, System.currentTimeMillis()))
+                .thenReply(bookmark.replyTo)(_ => BookmarkedBySuccess(bookmark.userId, state.labels))
+
+            case retrieve: UserRetrievalCommand =>
+              val similarUser = state.similarUsers.map{
+                case (userId, labels) =>
+                  userId -> state.labels.foldLeft(0){
+                    case (acc, (label, labelWeight)) =>
+                      acc + Math.min(labels.getOrElse(label, 0), labelWeight)
+                  }
+              }.filter(_._2 > LabelWeightFilter)
+              println(state.similarUsers)
+              Effect.reply(retrieve.replyTo)(UserInfo(state.userId, state.userType, state.properties, state.labels, state.viewed, state.bookmarkedNodes.keySet, state.bookmarkedUsers.keySet, state.bookmarkedBy.keySet, similarUser))
+
+            case NeighbouringViewsRequest(userId, replyTo) =>
+              Effect.reply(replyTo)(NeighbouringViews(userId, state.viewed.take(10)))
           }
       }
   }
@@ -124,50 +220,111 @@ object UserNodeEntity {
       state match {
         case _: EmptyUserState =>
           event match {
-            case created: UserCreated =>
+            case created: UserUpdated =>
               CreatedUserState(
                 created.userId,
                 created.userType,
                 created.properties,
                 created.labels,
+                Map.empty,
+                Map.empty,
+                Map.empty,
+                Map.empty,
                 Seq.empty
               )
+
+            case _ =>
+              state
           }
         case created: CreatedUserState =>
           event match {
-            case _: UserCreated =>
-              created
             case update: UserUpdated =>
               CreatedUserState(
                 created.userId,
                 update.userType,
                 update.properties,
                 update.labels,
+                Map.empty,
+                Map.empty,
+                Map.empty,
+                Map.empty,
                 created.viewed
               )
-            case req: UserRequest =>
-              val labels = created.labels.foldLeft(Set.empty[LabelWeight]){
-                case (acc, labelWeight) =>
-                  acc + req.tags.get(labelWeight.tag).map{ weight =>
-                    LabelWeight(labelWeight.weight + weight, labelWeight.tag)
-                  }.getOrElse(labelWeight)
-              }
 
-              val newLabels = req.tags.foldLeft(Set.empty[LabelWeight]){
-                case (acc, (tag, weight)) =>
-                  if(created.labels.exists(_.tag == tag)) acc
-                  else acc + LabelWeight(weight, tag)
-              }
+            case node: NodeBookmarked =>
+              val views = created.viewed.size + 1
+              val updatedLabels: Map[String, Int] =
+                if(created.bookmarkedNodes.contains(node.nodeId))
+                  created.labels
+                else
+                  node.tags.mapValues(_/views * NodeBookmarkBias) ++ created.labels.foldLeft(Map.empty[String, Int]){
+                    case (acc, (label, weight)) =>
+                      acc + (label -> (weight * views + (node.tags.getOrElse(label, 0) * NodeBookmarkBias)) / views)
+                  }
+              created.copy(
+                bookmarkedNodes = created.bookmarkedNodes + (node.nodeId -> node),
+                labels = updatedLabels
+              )
+
+            case user: UserBookmarked =>
+              val bookmarkExists = created.bookmarkedUsers.contains(user.userId)
+              val views = created.viewed.size + 1
+              val updatedLabels: Map[String, Int] =
+                if(bookmarkExists)
+                  created.labels
+                else
+                  user.labels.mapValues(_/views * UserBookmarkBias) ++ created.labels.foldLeft(Map.empty[String, Int]){
+                    case (acc, (label, weight)) =>
+                      acc + (label -> (weight * views + (user.labels.getOrElse(label, 0) * UserBookmarkBias)) / views)
+                  }
+
+              val withNewSimilarUsers = created.similarUsers + (user.targetUserId -> user.labels)
+              val updatedSimilarUsers =
+                if(withNewSimilarUsers.size > NumberOfSimilarUsers) {
+                  val leastSimilarUser: Seq[String] = rankSimilarUsers(withNewSimilarUsers, updatedLabels).drop(NumberOfSimilarUsers).map(_._1)
+                  withNewSimilarUsers -- leastSimilarUser
+                } else withNewSimilarUsers
 
               created.copy(
-                labels = labels ++ newLabels,
-                viewed = req.nodeId +: created.viewed
+                bookmarkedUsers = created.bookmarkedUsers + (user.targetUserId -> user),
+                labels = updatedLabels.filter(_._2 > LabelWeightFilter),
+                similarUsers = updatedSimilarUsers
+              )
+
+            case by: BookmarkedBy =>
+              created.copy(bookmarkedBy = created.bookmarkedBy + (by.bookmarkUser -> by))
+
+            case req: UserRequest =>
+              val updatedViews = req.nodeId +: created.viewed
+
+              val updatedLabels: Map[String, Int] =
+                if(created.viewed.contains(req.nodeId))
+                  created.labels
+                else
+                  req.tags.mapValues(_/updatedViews.size) ++ created.labels.foldLeft(Map.empty[String, Int]){
+                    case (acc, (label, weight)) =>
+                      acc + (label -> (weight * updatedViews.size + req.tags.getOrElse(label, 0)) / (updatedViews.size + 1))
+                  }
+
+              val withNewSimilarUsers = created.similarUsers ++ req.similarUsers
+              val updatedSimilarUsers =
+                if(withNewSimilarUsers.size > NumberOfSimilarUsers) {
+                  val leastSimilarUser = rankSimilarUsers(withNewSimilarUsers, updatedLabels).drop(NumberOfSimilarUsers).map(_._1)
+                  withNewSimilarUsers -- leastSimilarUser
+                } else withNewSimilarUsers
+
+              created.copy(
+                labels = updatedLabels.filter(_._2 > LabelWeightFilter),
+                viewed = updatedViews,
+                similarUsers = updatedSimilarUsers
               )
           }
       }
   }
 
   val TypeKey = EntityTypeKey[UserCommand[UserReply]]("user")
+  val UserUpdateTagName = "userupdate"
+  val UserEventDefaultTagName = "userevent"
 
   def userEntityBehaviour(persistenceId: PersistenceId): Behavior[UserCommand[UserReply]] = Behaviors.setup { context =>
     EventSourcedBehavior.withEnforcedReplies(
@@ -177,5 +334,9 @@ object UserNodeEntity {
       eventHandler(context)
     )
       .withRetention(RetentionCriteria.snapshotEvery(numberOfEvents = 20, keepNSnapshots = 2))
+      .withTagger{
+        case _: UserUpdated => Set(UserUpdateTagName, UserEventDefaultTagName)
+        case _ => Set(UserEventDefaultTagName)
+      }
   }
 }

@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: '2'
+  creationTimestamp: '2020-05-08T04:16:57Z'
+  generation: 2
+  labels:
+    app: api-server
+  name: api-server
+  namespace: default
+  resourceVersion: '69162179'
+  selfLink: /apis/apps/v1/namespaces/default/deployments/api-server
+  uid: 304310e6-8873-4f00-b0b9-787a191b5181
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: api-server
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: api-server
+    spec:
+      containers:
+        - env:
+            - name: JWT_SECRET
+              value: zcxoul2joidjldksa1q12iouydois2s
+            - name: MYSQL_URL
+              value: >-
+                mysql://dayou:dayoupass@rm-2zewp0fajr94s4s0d125010.mysql.rds.aliyuncs.com/dayou
+            - name: NODE_ENV
+              value: development
+            - name: BASE_URL
+              value: 'http://login.gotin.live'
+            - name: SENDGRID_USER
+              value: app75412220@heroku.com
+            - name: SENDGRID_PASS
+              value: kvfmxtpy5416
+            - name: LINKEDIN_CLIENT_ID
+              value: 86m7oucwapftl0
+            - name: LINKEDIN_CLIENT_SECRET
+              value: VEt5i9L1JbhbOM2b
+            - name: CALLBACK_URL
+              value: 'http://login.gotin.live/auth/linkedin/callback'
+          image: 'registry.cn-beijing.aliyuncs.com/firsttest/api-server:latest'
+          imagePullPolicy: Always
+          name: api-server
+          ports:
+            - containerPort: 3030
+              name: web
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+status:
+  availableReplicas: 1
+  conditions:
+    - lastTransitionTime: '2020-05-08T04:16:58Z'
+      lastUpdateTime: '2020-05-09T14:02:59Z'
+      message: ReplicaSet "api-server-5bdb65cd66" has successfully progressed.
+      reason: NewReplicaSetAvailable
+      status: 'True'
+      type: Progressing
+    - lastTransitionTime: '2020-05-11T10:12:47Z'
+      lastUpdateTime: '2020-05-11T10:12:47Z'
+      message: Deployment has minimum availability.
+      reason: MinimumReplicasAvailable
+      status: 'True'
+      type: Available
+  observedGeneration: 2
+  readyReplicas: 1
+  replicas: 1
+  updatedReplicas: 1

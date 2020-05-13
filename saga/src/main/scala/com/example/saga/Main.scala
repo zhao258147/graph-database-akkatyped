@@ -17,9 +17,13 @@ import com.datastax.driver.core.{Cluster, Session}
 import com.example.graph.GraphNodeEntity
 import com.example.graph.GraphNodeEntity.{GraphNodeCommand, GraphNodeCommandReply, NodeId}
 import com.example.graph.readside.{ClickReadSideActor, NodeReadSideActor, OffsetManagement}
-import com.example.saga.SagaActor.{NodeReferral, SagaActorReply}
+import com.example.saga.HomePageRecommendationActor.{HomePageRecommendation, HomePageRecommendationReply}
+import com.example.saga.NodeBookmarkActor.{BookmarkNode, NodeBookmarkReply}
+import com.example.saga.NodeRecommendationActor.{NodeRecommendationReply, NodeReferral}
+import com.example.saga.UserBookmarkActor.{BookmarkUser, UserBookmarkReply}
 import com.example.saga.config.SagaConfig
 import com.example.saga.http.{CORSHandler, RequestApi}
+import com.example.saga.readside.{SagaNodeReadSideActor, SagaUserReadSideActor}
 import com.example.user.UserNodeEntity
 import com.example.user.UserNodeEntity.{UserCommand, UserId, UserReply}
 import com.typesafe.config.ConfigFactory
@@ -91,14 +95,37 @@ object Main extends App {
         )
       ).onFailure[Exception](SupervisorStrategy.restart), "ClickReadSide"))
 
+
+
   sealed trait SagaCommand
-  case class NodeReferralCommand(nodeId: NodeId, userId: UserId, userLabels: Map[String, Int], replyTo: ActorRef[SagaActorReply]) extends SagaCommand
+  case class NodeRecoCommand(nodeId: NodeId, userId: UserId, userLabels: Map[String, Int], replyTo: ActorRef[NodeRecommendationReply]) extends SagaCommand
+  case class HomePageRecoCommand(userId: UserId, userLabels: Map[String, Int], replyTo: ActorRef[HomePageRecommendationReply]) extends SagaCommand
+  case class BookmarkUserCommand(userId: UserId, targetNodeId: UserId, replyTo: ActorRef[UserBookmarkReply]) extends SagaCommand
+  case class BookmarkNodeCommand(nodeId: NodeId, userId: UserId, replyTo: ActorRef[NodeBookmarkReply]) extends SagaCommand
 
   def apply(): Behavior[SagaCommand] = Behaviors.setup{ context =>
+    val sagaNodeReadSideActor: ActorRef[SagaNodeReadSideActor.SagaNodeReadSideCommand] = context.spawn(SagaNodeReadSideActor(), "LocalNodeReadSideActor")
+    val sagaUserReadSideActor: ActorRef[SagaUserReadSideActor.SagaUserReadSideCommand] = context.spawn(SagaUserReadSideActor(), "LocalUserReadSideActor")
+
     Behaviors.receiveMessage{
-      case referral: NodeReferralCommand =>
-        val sagaActor = context.spawn(SagaActor(graphShardRegion, userShardRegion, clickReadSideActor, nodeReadSideActor), UUID.randomUUID().toString)
+      case referral: NodeRecoCommand =>
+        val sagaActor = context.spawn(NodeRecommendationActor(graphShardRegion, userShardRegion, clickReadSideActor, sagaNodeReadSideActor, sagaUserReadSideActor), UUID.randomUUID().toString)
         sagaActor ! NodeReferral(referral.nodeId, referral.userId, referral.userLabels, referral.replyTo)
+        Behaviors.same
+
+      case home: HomePageRecoCommand =>
+        val sagaActor = context.spawn(HomePageRecommendationActor(userShardRegion, clickReadSideActor, sagaNodeReadSideActor, sagaUserReadSideActor), UUID.randomUUID().toString)
+        sagaActor ! HomePageRecommendation(home.userId, home.userLabels, home.replyTo)
+        Behaviors.same
+
+      case bookmarkUser: BookmarkUserCommand =>
+        val sagaActor = context.spawn(UserBookmarkActor(userShardRegion, sagaUserReadSideActor), UUID.randomUUID().toString)
+        sagaActor ! BookmarkUser(bookmarkUser.userId, bookmarkUser.targetNodeId, bookmarkUser.replyTo)
+        Behaviors.same
+
+      case bookmarkNode: BookmarkNodeCommand =>
+        val sagaActor = context.spawn(NodeBookmarkActor(graphShardRegion, userShardRegion, sagaUserReadSideActor), UUID.randomUUID().toString)
+        sagaActor ! BookmarkNode(bookmarkNode.nodeId, bookmarkNode.userId, bookmarkNode.replyTo)
         Behaviors.same
     }
   }

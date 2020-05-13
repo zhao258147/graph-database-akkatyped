@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: '3'
+  creationTimestamp: '2020-05-05T08:14:37Z'
+  generation: 3
+  labels:
+    app: essearch
+  name: essearch
+  namespace: default
+  resourceVersion: '69162166'
+  selfLink: /apis/apps/v1/namespaces/default/deployments/essearch
+  uid: 27ec6c44-5ef9-4e5f-aafc-5a5ef8b53cce
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: essearch
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: essearch
+    spec:
+      containers:
+        - env:
+            - name: ELASTICSEARCH_HOST
+              value: es-cn-31t1mz348000613xa.elasticsearch.aliyuncs.com
+            - name: ELASTICSEARCH_PORT
+              value: '9200'
+            - name: ELASTICSEARCH_USERNAME
+              value: elastic
+            - name: ELASTICSEARCH_PASSWORD
+              value: jiS+a7Szq$fWfw@
+          image: 'registry.cn-beijing.aliyuncs.com/firsttest/essearch:3'
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /
+              port: 80
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 100
+            successThreshold: 1
+            timeoutSeconds: 10
+          name: essearch
+          ports:
+            - containerPort: 80
+              name: port80
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+status:
+  availableReplicas: 1
+  conditions:
+    - lastTransitionTime: '2020-05-05T08:14:37Z'
+      lastUpdateTime: '2020-05-05T09:25:39Z'
+      message: ReplicaSet "essearch-78bc68db4" has successfully progressed.
+      reason: NewReplicaSetAvailable
+      status: 'True'
+      type: Progressing
+    - lastTransitionTime: '2020-05-11T10:12:47Z'
+      lastUpdateTime: '2020-05-11T10:12:47Z'
+      message: Deployment has minimum availability.
+      reason: MinimumReplicasAvailable
+      status: 'True'
+      type: Available
+  observedGeneration: 3
+  readyReplicas: 1
+  replicas: 1
+  updatedReplicas: 1

@@ -1,8 +1,7 @@
 package com.example.gatling
 
-import com.example.graph.GraphNodeEntity.{Tags, To}
 import com.example.graph.http.Requests.{CreateNodeReq, UpdateEdgeReq}
-import com.example.saga.SagaActor.NodeReferralReply
+import com.example.saga.NodeRecommendationActor.NodeRecommendationSuccess
 import com.example.saga.http.Requests.{NodeReferralReq, NodeVisitReq}
 import com.example.user.UserNodeEntity.UserInfo
 import com.example.user.http.Requests.CreateUserReq
@@ -13,7 +12,7 @@ import io.gatling.core.session.Session
 import io.gatling.http.Predef._
 import org.json4s.jackson.Serialization.write
 import org.json4s.native.JsonMethods
-import org.json4s.{DefaultFormats, Formats, jackson, native}
+import org.json4s.{DefaultFormats, Formats, jackson}
 
 import scala.concurrent.duration._
 import scala.util.Random
@@ -27,7 +26,8 @@ class GraphScenario extends Simulation {
   implicit val serialization = jackson.Serialization
   implicit val formats: Formats = DefaultFormats
 
-  val baseUrl = config.getString("loadtest.baseUrl")
+//  val baseUrl = config.getString("loadtest.baseUrl")
+  val baseUrl = "http://39.102.74.2:8081"
   val rampupUsers = config.getInt("loadtest.rampup.users")
   val rampupTime = config.getDuration("loadtest.rampup.time")
 
@@ -86,6 +86,7 @@ class GraphScenario extends Simulation {
   )
 
   val companyFeeder = csv("companyId.csv").random
+  val userLabelsFeeder = csv("userLabels.csv")
 
   def nodeReq(session: Session): CreateNodeReq = {
     val nodeId = session("nodeId").as[String]
@@ -96,8 +97,11 @@ class GraphScenario extends Simulation {
     val nodetype = session("nodetype").as[String]
     val tag = session("tag").as[String]
 
-    val tags = Seq(nodetype, tag, companySeq(rand.nextInt(13)), randomTags(rand.nextInt(9)), speakerSeq(rand.nextInt(5)), audienceSeq(rand.nextInt(4)))
-    val tagMap = tags.map(_ -> (rand.nextInt(5) + 1)).toMap
+    val tags = Map(
+      session("primary").as[String] -> 1000,
+      session("second1").as[String] -> 200,
+      session("second2").as[String] -> 200
+    )
 
     val company = session("company").as[String]
 
@@ -105,14 +109,15 @@ class GraphScenario extends Simulation {
       nodeId,
       nodetype,
       company,
-      tagMap,
-      Map("x" -> x, "y" -> y)
+      tags,
+      Map("x" -> x, "y" -> y, "title" -> s"$company-$nodeId")
     )
   }
 
   val nodeScn = scenario("create nodes")
     .feed(nodeIdFeeder)
     .feed(tagsFeeder)
+    .feed(userLabelsFeeder)
     .feed(companyFeeder)
     .exec(
       http("create node")
@@ -122,12 +127,30 @@ class GraphScenario extends Simulation {
     )
 
   val userIdFeeder = csv("userIds.csv")
+
   val userScn = scenario("create users")
     .feed(userIdFeeder)
+    .feed(userLabelsFeeder)
     .exec(
       http("create node")
         .put("/api/user")
-        .body(new StringBody(session => write(CreateUserReq(session("userId").as[String], "user"))))
+        .body(new StringBody(session => write(
+          CreateUserReq(
+            session("userId").as[String],
+            "user",
+            Map(
+              "x" -> session("userId").as[String].substring(1,2),
+              "y" -> session("userId").as[String].substring(2,3),
+              "firstname" -> session("userId").as[String].substring(1,2),
+              "lastname" -> session("userId").as[String].substring(2,3)
+            ),
+            Map(
+              session("primary").as[String] -> 5000,
+              session("second1").as[String] -> 1000,
+              session("second2").as[String] -> 1000
+            )
+          )
+        )))
         .check(status.is(200))
     )
 
@@ -176,7 +199,7 @@ class GraphScenario extends Simulation {
       nodeId = session("nodeId").as[String],
       targetNodeId = session("targetNodeId").as[String],
       userId = session("userId").as[String],
-      userLabels = userInfo.state.labels.map(x => x.tag -> x.weight).toMap
+      userLabels = userInfo.labels
     )
   }
 
@@ -187,7 +210,7 @@ class GraphScenario extends Simulation {
     val nr = NodeReferralReq(
       session("nodeId").as[String],
       session("userId").as[String],
-      userInfo.state.labels.map(x => x.tag -> x.weight).toMap
+      userInfo.labels
     )
     println(nr)
     nr
@@ -200,29 +223,33 @@ class GraphScenario extends Simulation {
     .repeat(10) {
       exec(
         http("user info")
-          .get("http://localhost:8082/api/user/${userId}")
+//          .get("http://localhost:8082/api/user/${userId}")
+          .get("http://39.97.181.51:8081/api/user/${userId}")
           .check(bodyString.saveAs("userinfo"))
       )
       .exec(
         http("request")
-          .post("http://localhost:8083/api/request")
+//          .post("http://localhost:8083/api/request")
+          .post("http://39.97.243.209:8081/api/request")
           .body(new StringBody(session => write(buildNodeReferralReq(session))))
           .check(bodyString.saveAs("requestResponse"))
       )
       .exec{ session =>
         val requestResponseStr = session("requestResponse").as[String]
-        val resp: NodeReferralReply = JsonMethods.parse(requestResponseStr).extract[NodeReferralReply]
-        val selectFrom: Seq[String] = resp.recommended ++ resp.relevant ++ resp.popular ++ resp.overallRanking
+        val resp: NodeRecommendationSuccess = JsonMethods.parse(requestResponseStr).extract[NodeRecommendationSuccess]
+        val selectFrom: Seq[String] = resp.relevant ++ resp.neighbourHistory
         val targetNode = selectFrom.drop(rand.nextInt(selectFrom.size - 1)).head
         println("x"*100)
+        println(targetNode)
         println(session("userId").as[String])
 
         session.set("targetNodeId", targetNode)
       }
-      .pause(1 seconds, 15 seconds)
+      .pause(1 seconds, 5 seconds)
       .exec(
         http("record")
-          .post("http://localhost:8083/api/record")
+//          .post("http://localhost:8083/api/record")
+          .post("http://39.97.243.209:8081/api/record")
           .body(new StringBody(session => write(buildNodeVisitReq(session))))
           .check(bodyString.saveAs("visitResponse"))
       )
@@ -237,7 +264,7 @@ class GraphScenario extends Simulation {
 
 
 //  setUp(
-//    nodeScn.inject(rampUsers(99) during (20 seconds))
+//    nodeScn.inject(rampUsers(100) during (100 seconds))
 //  ).protocols(httpConf)
 
   val visitorConf = http.shareConnections.contentTypeHeader("application/json")
@@ -245,10 +272,11 @@ class GraphScenario extends Simulation {
     vistorScn.inject(rampUsers(100) during (100 seconds))
   ).protocols(visitorConf)
 
-//
+
+//  val userUrl = "http://39.97.181.51:8081"
 //  val userUrl = "http://localhost:8082"
 //  val userConf = http.baseUrl(userUrl).shareConnections.contentTypeHeader("application/json")
 //  setUp(
-//    userScn.inject(rampUsers(50) during (100 seconds))
+//    userScn.inject(rampUsers(99) during (9 seconds))
 //  ).protocols(userConf)
 }

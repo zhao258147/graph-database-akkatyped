@@ -12,7 +12,7 @@ import com.example.graph.http.Requests._
 import com.example.graph.query.GraphQueryActor.GraphQueryReply
 import com.example.graph.query.GraphActorSupervisor
 import com.example.graph.query.GraphActorSupervisor.{GraphQueryProgress, StartEdgeSagaActor, StartGraphQueryActor, StartWeightQuery}
-import com.example.graph.query.WeightQueryActor.WeightQueryReply
+import com.example.graph.query.NodesQueryActor.NodesQueryReply
 import com.example.graph.readside.{ClickReadSideActor, NodeReadSideActor}
 import com.example.graph.readside.ClickReadSideActor.{TrendingNodesCommand, TrendingNodesResponse}
 import com.example.graph.readside.NodeReadSideActor.{RelatedNodeQuery, RelatedNodeQueryResponse}
@@ -87,13 +87,15 @@ object RequestApi extends Json4sSupport {
             }
           }
         } ~
-        pathPrefix("edges") {
-          get {
-            complete(
-              graphActorSupervisor.ask[WeightQueryReply] { ref =>
-                StartWeightQuery(ref)
-              }
-            )
+        pathPrefix("nodes") {
+          post {
+            entity(as[NodesQueryReq]) { query =>
+              complete(
+                graphActorSupervisor.ask[NodesQueryReply] { ref =>
+                  StartWeightQuery(query.nodeIds, ref)
+                }
+              )
+            }
           }
         } ~
         pathPrefix(Segment) { nodeId =>

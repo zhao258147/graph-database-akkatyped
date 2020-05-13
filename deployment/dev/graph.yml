@@ -2,14 +2,14 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    deployment.kubernetes.io/revision: '21'
+    deployment.kubernetes.io/revision: '26'
   creationTimestamp: '2020-04-26T21:05:54Z'
-  generation: 38
+  generation: 53
   labels:
     app: graph
   name: graph
   namespace: default
-  resourceVersion: '18992651'
+  resourceVersion: '69162173'
   selfLink: /apis/apps/v1/namespaces/default/deployments/graph
   uid: 457af319-e183-4548-86a4-048c8aae9ed3
 spec:
@@ -51,12 +51,12 @@ spec:
                   fieldPath: status.podIP
             - name: ELASTICSEARCH_HOST
               value: 192.168.0.156
-          image: 'registry-vpc.cn-beijing.aliyuncs.com/firsttest/graph:0.2.14-SNAPSHOT'
+          image: 'registry-vpc.cn-beijing.aliyuncs.com/firsttest/graph:0.5.1-SNAPSHOT'
           imagePullPolicy: IfNotPresent
           livenessProbe:
             failureThreshold: 3
             httpGet:
-              path: health/ready
+              path: health/alive
               port: 8558
               scheme: HTTP
             initialDelaySeconds: 3
@@ -76,7 +76,7 @@ spec:
           readinessProbe:
             failureThreshold: 3
             httpGet:
-              path: health/alive
+              path: health/ready
               port: 8558
               scheme: HTTP
             initialDelaySeconds: 3
@@ -97,19 +97,19 @@ spec:
 status:
   availableReplicas: 1
   conditions:
-    - lastTransitionTime: '2020-04-28T20:24:13Z'
-      lastUpdateTime: '2020-04-28T20:24:13Z'
+    - lastTransitionTime: '2020-04-26T21:05:54Z'
+      lastUpdateTime: '2020-05-10T22:34:47Z'
+      message: ReplicaSet "graph-5d96bb98dc" has successfully progressed.
+      reason: NewReplicaSetAvailable
+      status: 'True'
+      type: Progressing
+    - lastTransitionTime: '2020-05-11T10:12:47Z'
+      lastUpdateTime: '2020-05-11T10:12:47Z'
       message: Deployment has minimum availability.
       reason: MinimumReplicasAvailable
       status: 'True'
       type: Available
-    - lastTransitionTime: '2020-04-26T21:05:54Z'
-      lastUpdateTime: '2020-04-29T16:54:17Z'
-      message: ReplicaSet "graph-788547cc96" has successfully progressed.
-      reason: NewReplicaSetAvailable
-      status: 'True'
-      type: Progressing
-  observedGeneration: 38
+  observedGeneration: 53
   readyReplicas: 1
   replicas: 1
   updatedReplicas: 1

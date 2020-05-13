@@ -12,6 +12,8 @@ object Requests {
   case class QueryReq(nodeType: Option[NodeType], edgeType: Set[EdgeType], nodeProperties: NodeProperties = Map.empty, edgeProperties: EdgeProperties = Map.empty)
   case class GraphQueryReq(queries: List[QueryReq])
 
+  case class NodesQueryReq(nodeIds: Set[String] = Set.empty)
+
   case class TrendingNodesReq(tags: Set[String])
 
   case class RelevantNodesReq(tags: Map[String, Int])

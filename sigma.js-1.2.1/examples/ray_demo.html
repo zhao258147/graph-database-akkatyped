@@ -256,8 +256,13 @@
         // document.getElementById("demo").innerHTML = this.responseText;
       }
     };
-    xhttp.open("GET", "http://localhost:8081/api/graph/edges", true);
-    xhttp.send();
+    xhttp.open("POST", "http://39.102.74.2:8081/api/graph/nodes", true);
+    <!--xhttp.open("POST", "http://localhost:8081/api/graph/nodes", true);-->
+    xhttp.setRequestHeader("Content-type", "application/json");
+    var jsonmsg = {
+      "nodeIds": []
+    }
+    xhttp.send("{}");
 
 
   </script>

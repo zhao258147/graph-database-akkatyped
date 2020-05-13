@@ -2,14 +2,14 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    deployment.kubernetes.io/revision: '11'
+    deployment.kubernetes.io/revision: '22'
   creationTimestamp: '2020-04-28T16:32:58Z'
-  generation: 13
+  generation: 30
   labels:
     app: user
   name: user
   namespace: default
-  resourceVersion: '19060904'
+  resourceVersion: '69162174'
   selfLink: /apis/apps/v1/namespaces/default/deployments/user
   uid: 54c405ca-297a-486b-9155-5389831c1f5e
 spec:
@@ -39,7 +39,7 @@ spec:
               value: >-
                 https://github.com/AdoptOpenJDK/openjdk8-upstream-binaries/releases/download/jdk8u252-b09/OpenJDK8U-jdk_
             - name: SEED_NODE
-              value: 192.168.0.171
+              value: 192.168.0.248
             - name: JAVA_OPTS
               value: '-Dconfig.resource=application-dev.conf'
             - name: CASSANDRA_PASSWORD
@@ -48,7 +48,7 @@ spec:
               value: 172.19.4.31
             - name: ELASTICSEARCH_HOST
               value: 172.19.10.82
-          image: 'registry-vpc.cn-beijing.aliyuncs.com/firsttest/user:0.2.2-SNAPSHOT'
+          image: 'registry-vpc.cn-beijing.aliyuncs.com/firsttest/user:0.5.0-SNAPSHOT'
           imagePullPolicy: IfNotPresent
           livenessProbe:
             failureThreshold: 3
@@ -94,19 +94,19 @@ spec:
 status:
   availableReplicas: 1
   conditions:
-    - lastTransitionTime: '2020-04-29T17:14:49Z'
-      lastUpdateTime: '2020-04-29T17:14:49Z'
+    - lastTransitionTime: '2020-04-28T16:32:58Z'
+      lastUpdateTime: '2020-05-10T22:36:35Z'
+      message: ReplicaSet "user-584c976cb8" has successfully progressed.
+      reason: NewReplicaSetAvailable
+      status: 'True'
+      type: Progressing
+    - lastTransitionTime: '2020-05-11T10:12:47Z'
+      lastUpdateTime: '2020-05-11T10:12:47Z'
       message: Deployment has minimum availability.
       reason: MinimumReplicasAvailable
       status: 'True'
       type: Available
-    - lastTransitionTime: '2020-04-28T16:32:58Z'
-      lastUpdateTime: '2020-04-29T17:14:49Z'
-      message: ReplicaSet "user-7ffbc4fc68" has successfully progressed.
-      reason: NewReplicaSetAvailable
-      status: 'True'
-      type: Progressing
-  observedGeneration: 13
+  observedGeneration: 30
   readyReplicas: 1
   replicas: 1
   updatedReplicas: 1

@@ -19,7 +19,7 @@ import scala.concurrent.ExecutionContextExecutor
 object NodeReadSideActor {
   val NodeUpdateEventName = "nodeupdate"
 
-  case class NodeInfo(company: String, nodeId: String, nodeType: String, tags: Tags)
+  case class NodeInfo(company: String, nodeId: String, nodeType: String, tags: Tags, properties: NodeProperties)
 
   @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
   @JsonSubTypes(
@@ -35,7 +35,7 @@ object NodeReadSideActor {
   case class NodeInformationUpdate(node: NodeInfo) extends NodeReadSideCommand
   case class RelatedNodeQuery(tags: Tags, replyTo: ActorRef[RelatedNodeQueryResponse]) extends NodeReadSideCommand
 
-  case class RelatedNodeQueryResponse(list: Seq[NodeInfo])
+  case class RelatedNodeQueryResponse(nodes: Map[String, Int])
 
   def ReadSideActorBehaviour(
     readSideConfig: ReadSideConfig,
@@ -89,7 +89,8 @@ object NodeReadSideActor {
             row.getString("id"),
             row.getString("type"),
             row.getMap("tags", classOf[String], classOf[java.lang.Integer])
-              .asScala.toMap.mapValues(_.toInt)
+              .asScala.toMap.mapValues(_.toInt),
+            row.getMap("properties", classOf[String], classOf[String]).asScala.toMap
           )
         }
         .runWith(Sink.seq)
@@ -106,16 +107,16 @@ object NodeReadSideActor {
           case RelatedNodeQuery(tags, replyTo) =>
             val visitorTotalWeight = tags.values.sum + 1
 
-            val recommended: Seq[NodeInfo] = list.foldLeft(Seq.empty[(NodeInfo, Int)]){
+            val recommended: Map[String, Int] = list.foldLeft(Seq.empty[(String, Int)]){
               case (acc, curNode) =>
                 val weightTotal = curNode.tags.foldLeft(0){
                   case (weightAcc, (label, weight)) =>
                     weightAcc + (tags.getOrElse(label, 0) * (weight.toDouble / visitorTotalWeight)).toInt
                 }
-                (curNode -> weightTotal) +: acc
-            }.sortWith(_._2 > _._2).map(_._1)
+                (curNode.nodeId, weightTotal) +: acc
+            }.take(20).toMap
 
-            replyTo ! RelatedNodeQueryResponse(recommended.take(20))
+            replyTo ! RelatedNodeQueryResponse(recommended)
             Behaviors.same
         }
 
@@ -138,7 +139,7 @@ object NodeReadSideActor {
               .map {
                 case ee@EventEnvelope(_, _, _, value: GraphNodeUpdated) =>
                   println(value)
-                  context.self ! NodeInformationUpdate(NodeInfo(value.companyId, value.id, value.nodeType, value.tags))
+                  context.self ! NodeInformationUpdate(NodeInfo(value.companyId, value.id, value.nodeType, value.tags, value.properties))
                   ee
                 case ee =>
                   ee

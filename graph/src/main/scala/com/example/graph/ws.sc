@@ -1,1 +1,4 @@
-println(Map(1 -> "s").toString)
+Set(5) match {
+  case Nil =>
+    printl
+}

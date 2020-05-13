@@ -2,23 +2,23 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    deployment.kubernetes.io/revision: '2'
-  creationTimestamp: '2020-04-28T20:08:01Z'
-  generation: 2
+    deployment.kubernetes.io/revision: '3'
+  creationTimestamp: '2020-05-09T11:15:38Z'
+  generation: 3
   labels:
-    app: es
-  name: es
+    app: ossupload
+  name: ossupload
   namespace: default
-  resourceVersion: '69162181'
-  selfLink: /apis/apps/v1/namespaces/default/deployments/es
-  uid: 164f0522-1850-48cb-a404-45362739069b
+  resourceVersion: '69162168'
+  selfLink: /apis/apps/v1/namespaces/default/deployments/ossupload
+  uid: 2fdeaf50-4039-4b35-90ca-33bde987e7c8
 spec:
   progressDeadlineSeconds: 600
   replicas: 1
   revisionHistoryLimit: 10
   selector:
     matchLabels:
-      app: es
+      app: ossupload
   strategy:
     rollingUpdate:
       maxSurge: 25%
@@ -27,26 +27,27 @@ spec:
   template:
     metadata:
       labels:
-        app: es
+        app: ossupload
     spec:
       containers:
         - env:
-            - name: ELASTIC_CONTAINER
-              value: 'true'
-            - name: JAVA_HOME
-              value: /opt/jdk-12
-          image: 'registry-vpc.cn-beijing.aliyuncs.com/firsttest/elasticsearch:6.7.0'
-          imagePullPolicy: IfNotPresent
-          name: es
+            - name: ACCESSKEYSECRET
+              value: ESOsXnXGdNVLlIZzBorHedy83lOeyq
+            - name: ACCESSKEYID
+              value: LTAI4GH6yFBiMTEtfyXwCSbR
+            - name: ROLEARN
+              value: 'acs:ram::1054187742116759:role/aliyunossoperation'
+          image: 'registry.cn-beijing.aliyuncs.com/firsttest/ossupload:3'
+          imagePullPolicy: Always
+          name: ossupload
           ports:
-            - containerPort: 9300
-              protocol: TCP
-            - containerPort: 9200
+            - containerPort: 80
+              name: port80
               protocol: TCP
           resources:
             requests:
-              cpu: '1'
-              memory: 3Gi
+              cpu: 250m
+              memory: 512Mi
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
       dnsPolicy: ClusterFirst
@@ -57,9 +58,9 @@ spec:
 status:
   availableReplicas: 1
   conditions:
-    - lastTransitionTime: '2020-04-28T20:08:01Z'
-      lastUpdateTime: '2020-04-28T20:10:28Z'
-      message: ReplicaSet "es-6f7ff9f4f6" has successfully progressed.
+    - lastTransitionTime: '2020-05-09T11:15:38Z'
+      lastUpdateTime: '2020-05-09T19:49:51Z'
+      message: ReplicaSet "ossupload-6687ddb549" has successfully progressed.
       reason: NewReplicaSetAvailable
       status: 'True'
       type: Progressing
@@ -69,7 +70,7 @@ status:
       reason: MinimumReplicasAvailable
       status: 'True'
       type: Available
-  observedGeneration: 2
+  observedGeneration: 3
   readyReplicas: 1
   replicas: 1
   updatedReplicas: 1

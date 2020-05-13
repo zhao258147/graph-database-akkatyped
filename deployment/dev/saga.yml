@@ -2,14 +2,14 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    deployment.kubernetes.io/revision: '5'
+    deployment.kubernetes.io/revision: '18'
   creationTimestamp: '2020-04-29T04:03:13Z'
-  generation: 5
+  generation: 26
   labels:
     app: saga
   name: saga
   namespace: default
-  resourceVersion: '19207759'
+  resourceVersion: '69162180'
   selfLink: /apis/apps/v1/namespaces/default/deployments/saga
   uid: 1280b674-0508-4c34-93ed-4b29c3e5c265
 spec:
@@ -39,7 +39,7 @@ spec:
               value: >-
                 https://github.com/AdoptOpenJDK/openjdk8-upstream-binaries/releases/download/jdk8u252-b09/OpenJDK8U-jdk_
             - name: SEED_NODE
-              value: 192.168.0.171
+              value: 192.168.0.248
             - name: JAVA_OPTS
               value: '-Dconfig.resource=saga-application-dev.conf'
             - name: CASSANDRA_PASSWORD
@@ -48,7 +48,7 @@ spec:
               value: 192.168.0.145
             - name: ELASTICSEARCH_HOST
               value: 192.168.0.156
-          image: 'registry-vpc.cn-beijing.aliyuncs.com/firsttest/saga:0.2.2-SNAPSHOT'
+          image: 'registry-vpc.cn-beijing.aliyuncs.com/firsttest/saga:0.5.0-SNAPSHOT'
           imagePullPolicy: IfNotPresent
           livenessProbe:
             failureThreshold: 3
@@ -92,19 +92,19 @@ spec:
 status:
   availableReplicas: 1
   conditions:
-    - lastTransitionTime: '2020-04-29T04:28:19Z'
-      lastUpdateTime: '2020-04-29T04:28:19Z'
+    - lastTransitionTime: '2020-04-29T04:03:13Z'
+      lastUpdateTime: '2020-05-10T22:36:04Z'
+      message: ReplicaSet "saga-666c6468c6" has successfully progressed.
+      reason: NewReplicaSetAvailable
+      status: 'True'
+      type: Progressing
+    - lastTransitionTime: '2020-05-11T10:12:47Z'
+      lastUpdateTime: '2020-05-11T10:12:47Z'
       message: Deployment has minimum availability.
       reason: MinimumReplicasAvailable
       status: 'True'
       type: Available
-    - lastTransitionTime: '2020-04-29T04:03:13Z'
-      lastUpdateTime: '2020-04-29T17:58:59Z'
-      message: ReplicaSet "saga-8dc5f4fbd" has successfully progressed.
-      reason: NewReplicaSetAvailable
-      status: 'True'
-      type: Progressing
-  observedGeneration: 5
+  observedGeneration: 26
   readyReplicas: 1
   replicas: 1
   updatedReplicas: 1

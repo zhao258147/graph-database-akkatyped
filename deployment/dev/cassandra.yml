@@ -9,7 +9,7 @@ metadata:
     app: cassandra
   name: cassandra
   namespace: default
-  resourceVersion: '12665440'
+  resourceVersion: '69162177'
   selfLink: /apis/apps/v1/namespaces/default/deployments/cassandra
   uid: 1a3b4502-0e83-40d0-857d-3d8fe55cb093
 spec:
@@ -83,18 +83,18 @@ spec:
 status:
   availableReplicas: 1
   conditions:
-    - lastTransitionTime: '2020-04-28T03:27:52Z'
-      lastUpdateTime: '2020-04-28T03:27:52Z'
-      message: Deployment has minimum availability.
-      reason: MinimumReplicasAvailable
-      status: 'True'
-      type: Available
     - lastTransitionTime: '2020-04-28T03:27:18Z'
       lastUpdateTime: '2020-04-28T03:27:52Z'
       message: ReplicaSet "cassandra-84f67fbb86" has successfully progressed.
       reason: NewReplicaSetAvailable
       status: 'True'
       type: Progressing
+    - lastTransitionTime: '2020-05-11T10:12:47Z'
+      lastUpdateTime: '2020-05-11T10:12:47Z'
+      message: Deployment has minimum availability.
+      reason: MinimumReplicasAvailable
+      status: 'True'
+      type: Available
   observedGeneration: 1
   readyReplicas: 1
   replicas: 1
