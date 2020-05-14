@@ -28,6 +28,8 @@ object Main extends App {
 
   val conf = ConfigFactory.load()
   val config = conf.as[GraphConfig]("GraphConfig")
+  
+  implicit val nodeParams = config.nodeEntityParams
 
   implicit val system: ActorSystem = ActorSystem("RayDemo", conf)
   implicit val materializer: ActorMaterializer = ActorMaterializer()

@@ -2,10 +2,10 @@ package com.example.saga
 
 import java.util.UUID
 
-import akka.actor.typed.{ActorRef, ActorSystem, Behavior, SupervisorStrategy}
 import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.{ActorRef, ActorSystem, Behavior, SupervisorStrategy}
+import akka.cluster.sharding.typed.scaladsl.{ClusterSharding, Entity}
 import akka.cluster.sharding.typed.{ClusterShardingSettings, ShardingEnvelope}
-import akka.cluster.sharding.typed.scaladsl.{ClusterSharding, Entity, EntityTypeKey}
 import akka.cluster.typed.{ClusterSingleton, SingletonActor}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Route
@@ -23,7 +23,7 @@ import com.example.saga.NodeRecommendationActor.{NodeRecommendationReply, NodeRe
 import com.example.saga.UserBookmarkActor.{BookmarkUser, UserBookmarkReply}
 import com.example.saga.config.SagaConfig
 import com.example.saga.http.{CORSHandler, RequestApi}
-import com.example.saga.readside.{SagaNodeReadSideActor, SagaUserReadSideActor}
+import com.example.saga.readside.{SagaNodeReadSideActor, SagaTrendingNodesActor, SagaUserReadSideActor}
 import com.example.user.UserNodeEntity
 import com.example.user.UserNodeEntity.{UserCommand, UserId, UserReply}
 import com.typesafe.config.ConfigFactory
@@ -35,6 +35,9 @@ import scala.concurrent.ExecutionContextExecutor
 object Main extends App {
   val conf = ConfigFactory.load()
   val config = conf.as[SagaConfig]("SagaConfig")
+
+  implicit val userParams = config.userEntityParams
+  implicit val nodeParams = config.nodeEntityParams
 
   import akka.actor.typed.scaladsl.adapter._
 
@@ -104,27 +107,26 @@ object Main extends App {
   case class BookmarkNodeCommand(nodeId: NodeId, userId: UserId, replyTo: ActorRef[NodeBookmarkReply]) extends SagaCommand
 
   def apply(): Behavior[SagaCommand] = Behaviors.setup{ context =>
-    val sagaNodeReadSideActor: ActorRef[SagaNodeReadSideActor.SagaNodeReadSideCommand] = context.spawn(SagaNodeReadSideActor(), "LocalNodeReadSideActor")
-    val sagaUserReadSideActor: ActorRef[SagaUserReadSideActor.SagaUserReadSideCommand] = context.spawn(SagaUserReadSideActor(), "LocalUserReadSideActor")
+    val sagaNodeReadSideActor: ActorRef[SagaNodeReadSideActor.SagaNodeReadSideCommand] = context.spawn(SagaNodeReadSideActor(nodeParams.numberOfRecommendationsToTake), "LocalNodeReadSideActor")
 
     Behaviors.receiveMessage{
       case referral: NodeRecoCommand =>
-        val sagaActor = context.spawn(NodeRecommendationActor(graphShardRegion, userShardRegion, clickReadSideActor, sagaNodeReadSideActor, sagaUserReadSideActor), UUID.randomUUID().toString)
+        val sagaActor = context.spawn(NodeRecommendationActor(graphShardRegion, userShardRegion, clickReadSideActor, sagaNodeReadSideActor), UUID.randomUUID().toString)
         sagaActor ! NodeReferral(referral.nodeId, referral.userId, referral.userLabels, referral.replyTo)
         Behaviors.same
 
       case home: HomePageRecoCommand =>
-        val sagaActor = context.spawn(HomePageRecommendationActor(userShardRegion, clickReadSideActor, sagaNodeReadSideActor, sagaUserReadSideActor), UUID.randomUUID().toString)
+        val sagaActor = context.spawn(HomePageRecommendationActor(userShardRegion, clickReadSideActor, sagaNodeReadSideActor), UUID.randomUUID().toString)
         sagaActor ! HomePageRecommendation(home.userId, home.userLabels, home.replyTo)
         Behaviors.same
 
       case bookmarkUser: BookmarkUserCommand =>
-        val sagaActor = context.spawn(UserBookmarkActor(userShardRegion, sagaUserReadSideActor), UUID.randomUUID().toString)
+        val sagaActor = context.spawn(UserBookmarkActor(userShardRegion), UUID.randomUUID().toString)
         sagaActor ! BookmarkUser(bookmarkUser.userId, bookmarkUser.targetNodeId, bookmarkUser.replyTo)
         Behaviors.same
 
       case bookmarkNode: BookmarkNodeCommand =>
-        val sagaActor = context.spawn(NodeBookmarkActor(graphShardRegion, userShardRegion, sagaUserReadSideActor), UUID.randomUUID().toString)
+        val sagaActor = context.spawn(NodeBookmarkActor(graphShardRegion, userShardRegion), UUID.randomUUID().toString)
         sagaActor ! BookmarkNode(bookmarkNode.nodeId, bookmarkNode.userId, bookmarkNode.replyTo)
         Behaviors.same
     }

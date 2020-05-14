@@ -39,6 +39,8 @@ object Main extends App {
   ClusterBootstrap(system).start()
 
   val config = conf.as[UserConfig]("UserConfig")
+  implicit val userParams = config.userEntityParams
+
   implicit val session: Session = Cluster.builder
     .addContactPoint(config.cassandraConfig.contactPoints)
     .withPort(config.cassandraConfig.port)

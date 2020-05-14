@@ -32,17 +32,18 @@ object SagaNodeReadSideActor {
   case class SagaNodesQueryResponse(list: Map[String, Int]) extends SagaNodeReadSideResponse
   case class SagaNodesInfoResponse(tagMatching: Seq[RecoWithNodeInfo], edgeWeight: Seq[RecoWithNodeInfo], relevant: Seq[RecoWithNodeInfo], trending: Seq[RecoWithNodeInfo], neighbourHistory: Seq[RecoWithNodeInfo], trendingByTag: Map[String, Seq[RecoWithNodeInfo]]) extends SagaNodeReadSideResponse
 
-  def apply()(implicit session: Session): Behavior[SagaNodeReadSideCommand] =
+  def apply(numberOfRecommendationsToTake: Int)(implicit session: Session): Behavior[SagaNodeReadSideCommand] =
     Behaviors.setup[SagaNodeReadSideCommand] { context =>
       implicit val system: ActorSystem[Nothing] = context.system
       implicit val ec: ExecutionContextExecutor = system.executionContext
+
+      println("SagaNodeReadSideActor started")
 
       val queries = PersistenceQuery(system).readJournalFor[CassandraReadJournal](CassandraReadJournal.Identifier)
       val createdStream: Source[EventEnvelope, NotUsed] = queries.eventsByTag(NodeUpdateEventName, NoOffset)
       createdStream
         .map {
           case ee@EventEnvelope(_, _, _, value: GraphNodeUpdated) =>
-            println(value)
             context.self ! NodeInformationUpdate(NodeInfo(value.companyId, value.id, value.nodeType, value.tags, value.properties))
             ee
           case ee =>
@@ -53,6 +54,7 @@ object SagaNodeReadSideActor {
       def collectNewNode(nodeMap: HashMap[String, NodeInfo]): Behavior[SagaNodeReadSideCommand] =
         Behaviors.receiveMessagePartial{
           case NodeInformationUpdate(node) =>
+            println(node)
             collectNewNode(nodeMap + (node.nodeId -> node))
 
           case retrieval: RetrieveNodesQuery =>
@@ -97,7 +99,7 @@ object SagaNodeReadSideActor {
                     weightAcc + (tags.getOrElse(label, 0) * (weight.toDouble / visitorTotalWeight)).toInt
                 }
                 (curNode.nodeId, weightTotal) +: acc
-            }.sortWith(_._2 > _._2).take(NumberOfRecommendationsToTake).toMap
+            }.sortWith(_._2 > _._2).take(numberOfRecommendationsToTake).toMap
 
             replyTo ! SagaNodesQueryResponse(recommended)
             Behaviors.same

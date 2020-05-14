@@ -26,8 +26,8 @@ class GraphScenario extends Simulation {
   implicit val serialization = jackson.Serialization
   implicit val formats: Formats = DefaultFormats
 
-//  val baseUrl = config.getString("loadtest.baseUrl")
-  val baseUrl = "http://39.102.74.2:8081"
+  val baseUrl = config.getString("loadtest.baseUrl")
+//  val baseUrl = "http://39.102.74.2:8081"
   val rampupUsers = config.getInt("loadtest.rampup.users")
   val rampupTime = config.getDuration("loadtest.rampup.time")
 
@@ -223,33 +223,33 @@ class GraphScenario extends Simulation {
     .repeat(10) {
       exec(
         http("user info")
-//          .get("http://localhost:8082/api/user/${userId}")
-          .get("http://39.97.181.51:8081/api/user/${userId}")
+          .get("http://localhost:8082/api/user/${userId}")
+//          .get("http://39.97.181.51:8081/api/user/${userId}")
           .check(bodyString.saveAs("userinfo"))
       )
       .exec(
         http("request")
-//          .post("http://localhost:8083/api/request")
-          .post("http://39.97.243.209:8081/api/request")
+          .post("http://localhost:8083/api/request")
+//          .post("http://39.97.243.209:8081/api/request")
           .body(new StringBody(session => write(buildNodeReferralReq(session))))
           .check(bodyString.saveAs("requestResponse"))
       )
       .exec{ session =>
         val requestResponseStr = session("requestResponse").as[String]
         val resp: NodeRecommendationSuccess = JsonMethods.parse(requestResponseStr).extract[NodeRecommendationSuccess]
-        val selectFrom: Seq[String] = resp.relevant ++ resp.neighbourHistory
+        val selectFrom = resp.relevant// ++ resp.neighbourHistory
         val targetNode = selectFrom.drop(rand.nextInt(selectFrom.size - 1)).head
         println("x"*100)
         println(targetNode)
         println(session("userId").as[String])
 
-        session.set("targetNodeId", targetNode)
+        session.set("targetNodeId", targetNode.node.nodeId)
       }
       .pause(1 seconds, 5 seconds)
       .exec(
         http("record")
-//          .post("http://localhost:8083/api/record")
-          .post("http://39.97.243.209:8081/api/record")
+          .post("http://localhost:8083/api/record")
+//          .post("http://39.97.243.209:8081/api/record")
           .body(new StringBody(session => write(buildNodeVisitReq(session))))
           .check(bodyString.saveAs("visitResponse"))
       )
@@ -269,7 +269,7 @@ class GraphScenario extends Simulation {
 
   val visitorConf = http.shareConnections.contentTypeHeader("application/json")
   setUp(
-    vistorScn.inject(rampUsers(100) during (100 seconds))
+    vistorScn.inject(rampUsers(1) during (1 seconds))
   ).protocols(visitorConf)
 
 

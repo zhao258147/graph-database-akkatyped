@@ -19,7 +19,7 @@ import scala.concurrent.ExecutionContextExecutor
 object NodeReadSideActor {
   val NodeUpdateEventName = "nodeupdate"
 
-  case class NodeInfo(company: String, nodeId: String, nodeType: String, tags: Tags, properties: NodeProperties)
+  case class NodeInfo(company: String, nodeId: String, nodeType: String, tags: Map[String, Int], properties: Map[String, String])
 
   @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
   @JsonSubTypes(

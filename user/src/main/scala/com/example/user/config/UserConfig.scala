@@ -5,7 +5,8 @@ import scala.concurrent.duration.FiniteDuration
 case class UserConfig (
   http: HttpConfig,
   readSideConfig: ReadSideConfig,
-  cassandraConfig: CassandraConfig
+  cassandraConfig: CassandraConfig,
+  userEntityParams: UserEntityParams
 )
 
 case class HttpConfig (
@@ -23,4 +24,13 @@ case class CassandraConfig (
   port: Int,
   username: String,
   password: String
+)
+
+case class UserEntityParams (
+  numberOfSimilarUsers: Int,
+  numberOfViewsToCheck: Int,
+  labelWeightFilter: Int,
+  nodeBookmarkBias: Int,
+  userBookmarkBias: Int,
+  nodeVisitBias: Int
 )

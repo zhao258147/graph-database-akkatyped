@@ -35,7 +35,7 @@ object RequestApi extends Json4sSupport {
               userCordinator.ask[UserReply] { ref: ActorRef[UserReply] =>
                 ShardingEnvelope(
                   req.userId,
-                  NodeVisitRequest(req.userId, req.nodeId, req.tags, req.recommended, req.popular, req.relevant, req.similarUsers, ref)
+                  NodeVisitRequest(req.userId, req.nodeId, req.tags, req.similarUsers, ref)
                 )
               }
             )

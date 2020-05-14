@@ -4,36 +4,28 @@ import akka.actor.typed.scaladsl.{Behaviors, TimerScheduler}
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.cluster.sharding.typed.ShardingEnvelope
 import com.datastax.driver.core.Session
-import com.example.saga.readside.SagaUserReadSideActor
-import com.example.saga.readside.SagaUserReadSideActor.{RetrieveUsersQuery, SagaUserInfoResponse}
 import com.example.user.UserNodeEntity._
 
 object UserBookmarkActor {
   sealed trait UserBookmarkCommand
   case class BookmarkUser(userId: UserId, targetUserId: String, replyTo: ActorRef[UserBookmarkReply]) extends UserBookmarkCommand
   case class WrappedUserEntityResponse(userEntityResponse: UserReply) extends UserBookmarkCommand
-  case class WrappedSagaUserActorResponse(usersResponse: SagaUserInfoResponse) extends UserBookmarkCommand
 
   sealed trait UserBookmarkReply
-  case class UserBookmarkSagaSuccess(userId: String, updatedLabels: Map[String, Int], similarUsers: Set[UserUpdated]) extends UserBookmarkReply
+  case class UserBookmarkSagaSuccess(userId: String, updatedLabels: Map[String, Int]) extends UserBookmarkReply
   case class UserBookmarkSagaFailed(message: String) extends UserBookmarkReply
 
   def apply(
-    userShardRegion: ActorRef[ShardingEnvelope[UserCommand[UserReply]]],
-    sagaUserReadSideActor: ActorRef[SagaUserReadSideActor.SagaUserReadSideCommand]
+    userShardRegion: ActorRef[ShardingEnvelope[UserCommand[UserReply]]]
   )(implicit session: Session): Behavior[UserBookmarkCommand] =
-    Behaviors.withTimers(timers => sagaBehaviour(userShardRegion, sagaUserReadSideActor, timers))
+    Behaviors.withTimers(timers => sagaBehaviour(userShardRegion, timers))
 
   def sagaBehaviour(
     userShardRegion: ActorRef[ShardingEnvelope[UserCommand[UserReply]]],
-    sagaUserReadSideActor: ActorRef[SagaUserReadSideActor.SagaUserReadSideCommand],
     timer: TimerScheduler[UserBookmarkCommand]
   )(implicit session: Session): Behavior[UserBookmarkCommand] = Behaviors.setup { cxt =>
     val userEntityResponseMapper: ActorRef[UserReply] =
       cxt.messageAdapter(rsp => WrappedUserEntityResponse(rsp))
-
-    val sagaUserActorResponseMapper: ActorRef[SagaUserInfoResponse] =
-      cxt.messageAdapter(rsp => WrappedSagaUserActorResponse(rsp))
 
     def initial(): Behavior[UserBookmarkCommand] =
       Behaviors.receiveMessagePartial {
@@ -74,8 +66,8 @@ object UserBookmarkActor {
     def waitingForBookmarkResponse(bookmark: BookmarkUser): Behavior[UserBookmarkCommand] =
       Behaviors.receiveMessage {
         case WrappedUserEntityResponse(wrapperUserReply: UserBookmarkSuccess) =>
-          sagaUserReadSideActor ! RetrieveUsersQuery(sagaUserActorResponseMapper, wrapperUserReply.similarUsers)
-          waitingForUserInfoResponse(bookmark, wrapperUserReply)
+          bookmark.replyTo ! UserBookmarkSagaSuccess(wrapperUserReply.userId, wrapperUserReply.labels)
+          Behaviors.stopped
 
         case x =>
           println(x)
@@ -83,17 +75,6 @@ object UserBookmarkActor {
           Behaviors.stopped
       }
 
-    def waitingForUserInfoResponse(bookmark: BookmarkUser, wrapperUserReply: UserBookmarkSuccess): Behavior[UserBookmarkCommand] =
-      Behaviors.receiveMessagePartial {
-        case WrappedSagaUserActorResponse(sagaUserInfo: SagaUserInfoResponse) =>
-          bookmark.replyTo ! UserBookmarkSagaSuccess(bookmark.userId, wrapperUserReply.labels, sagaUserInfo.list)
-          Behaviors.stopped
-
-        case x =>
-          println(x)
-          bookmark.replyTo ! UserBookmarkSagaFailed("did not receive SagaUserInfoResponse message")
-          Behaviors.stopped
-      }
     initial()
   }
 
