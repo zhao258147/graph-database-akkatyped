@@ -184,22 +184,20 @@ object NodeRecommendationActor {
     def waitingForNeighbourViewsReply(referral: NodeReferral, nodeReply: RecommendedResult, userReply: NodeVisitRequestSuccess, tagMatching: Map[String, Int], edgeWeight: Map[String, Int], relevant: Map[String, Int], trending: Map[String, Int], trendingByTag: Map[String, Seq[(String, Int)]], neighbours: Set[UserId], viewsCollected: Map[String, Int], viewed: Seq[String], neighbourUsers: Seq[UserDisplayInfo]): Behavior[NodeRecommendationCommand] =
       Behaviors.receiveMessage {
         case WrappedUserEntityResponse(wrapperUserReply: NeighbouringViews) =>
-          val neighboursLeft: Set[UserId] = neighbours - wrapperUserReply.userId
-
           val updatedViews: Map[String, Weight] = viewsCollected ++ wrapperUserReply.viewed.map{ nodeId =>
             nodeId -> (viewsCollected.getOrElse(nodeId, 0) + 1)
           }
 
           val updatedNeighboursInfo = UserDisplayInfo(wrapperUserReply.userId, wrapperUserReply.userType, wrapperUserReply.properties, wrapperUserReply.labels) +: neighbourUsers
 
-          if(neighboursLeft.isEmpty) {
+          if(neighbours.size == updatedNeighboursInfo.size) {
             sagaNodeReadSideActor ! RetrieveNodesQuery(tagMatching -- viewed, edgeWeight -- viewed, relevant -- viewed, trending, updatedViews -- viewed, trendingByTag, sagaNodeActorResponseMapper)
             waitingForFinalNeighbourViewsFilter(referral, nodeReply, userReply, updatedNeighboursInfo)
           } else waitingForNeighbourViewsReply(referral, nodeReply, userReply, tagMatching, edgeWeight, relevant, trending, trendingByTag, neighbours, viewsCollected, viewed, updatedNeighboursInfo)
 
         case NodeRecommendationTimeout =>
           //TODO: implement this to return any results that came back
-          println(s"(neighbours, neighbourInfoOpt) (${neighbours}, ${neighbourUsers})")
+          println(s"(neighbours, updatedNeighboursInfo) (${neighbours}, ${neighbourUsers})")
           referral.replyTo ! NodeRecommendationFailed(RecoTimeoutMessage)
           Behaviors.stopped
 
