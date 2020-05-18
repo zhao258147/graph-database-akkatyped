@@ -4,7 +4,9 @@ case class OSSConfig(
   http: HttpConfig,
   rootPath: String,
   bucketName: String,
-  endpoint: String
+  endpoint: String,
+  accessKeyIdL: String,
+  accessKeySecret: String
 )
 
 case class HttpConfig (

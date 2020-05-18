@@ -28,7 +28,7 @@ object Main extends App {
   implicit val ec: ExecutionContextExecutor = system.dispatcher
 
   // 阿里云主账号AccessKey拥有所有API的访问权限，风险很高。强烈建议您创建并使用RAM账号进行API访问或日常运维，请登录 https://ram.console.aliyun.com 创建RAM账号。
-  val accessKeyId = "LTAI4G1GjsD5V7oqXeuPCu9z"
+  val accessKeyId = ""
   val accessKeySecret = "Rt31jT1JSWKn54irFCA1a9U4s9oYgP"
 
   // 创建OSSClient实例。
