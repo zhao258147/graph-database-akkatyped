@@ -144,3 +144,25 @@ val `benchmarks` = Project(id = "benchmarks",
     )
   )
   .dependsOn(`graph`, `user`, `saga`)
+
+val `ossupload` = Project(id = "ossupload",
+  base = file("ossupload"))
+  .settings(
+    version := "0.1.4-SNAPSHOT",
+    scalaVersion := "2.12.8",
+    cinnamon in run := false,
+    dockerExposedPorts ++= Seq(8083),
+    dockerRepository := Some("registry.cn-beijing.aliyuncs.com"),
+    dockerUsername := Some("firsttest"),
+    libraryDependencies ++= Seq(
+      "com.aliyun.oss" % "aliyun-sdk-oss" % "3.9.1",
+      "org.json4s" %% "json4s-jackson" % "3.6.7",
+      json4sExt,
+      ficus,
+      akkaActorTyped,
+      akkaHttp,
+      akkaHttpJson4s,
+      akkaStreams,
+      "com.typesafe.akka" %% "akka-protobuf" % akkaVersion
+    )
+  ).enablePlugins(JavaAppPackaging).enablePlugins(DockerPlugin)
