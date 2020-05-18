@@ -5,7 +5,7 @@ case class OSSConfig(
   rootPath: String,
   bucketName: String,
   endpoint: String,
-  accessKeyIdL: String,
+  accessKeyId: String,
   accessKeySecret: String
 )
 

@@ -148,7 +148,7 @@ val `benchmarks` = Project(id = "benchmarks",
 val `ossupload` = Project(id = "ossupload",
   base = file("ossupload"))
   .settings(
-    version := "0.1.4-SNAPSHOT",
+    version := "0.1.6-SNAPSHOT",
     scalaVersion := "2.12.8",
     cinnamon in run := false,
     dockerExposedPorts ++= Seq(8083),
