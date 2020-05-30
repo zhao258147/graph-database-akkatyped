@@ -12,6 +12,7 @@ import akka.stream.scaladsl.{FileIO, Source}
 import akka.stream.{ActorMaterializer, IOResult}
 import akka.util.{ByteString, Timeout}
 import com.aliyun.oss.OSS
+import com.aliyun.oss.model.OSSObjectSummary
 import com.youda.ossupload.config.OSSConfig
 import de.heikoseeberger.akkahttpjson4s.Json4sSupport
 import org.json4s.{DefaultFormats, Formats}
@@ -123,6 +124,7 @@ object RequestApi extends Json4sSupport {
             case Success(value) =>
               complete(value)
             case Failure(exception) =>
+              println(exception)
               complete(StatusCodes.BadGateway)
           }
         }
@@ -140,13 +142,14 @@ object RequestApi extends Json4sSupport {
         case (fileInfo, fileStream: Source[ByteString, Any]) =>
           println(fileInfo)
           val objectName = s"$companyName/${fileInfo.fieldName}"
-          println(objectName)
+
           val path: Path = Paths.get(s"${config.rootPath}/$companyName/${fileInfo.fileName}")
 
           upload(ossClient, path, fileStream, objectName, config.bucketName) match {
             case Success(value) =>
               complete(value)
             case Failure(exception) =>
+              println(exception)
               complete(StatusCodes.BadGateway)
           }
       }
@@ -163,6 +166,7 @@ object RequestApi extends Json4sSupport {
             case Success(value) =>
               complete(value)
             case Failure(exception) =>
+              println(exception)
               complete(StatusCodes.BadGateway)
           }
       }
@@ -184,6 +188,23 @@ object RequestApi extends Json4sSupport {
       }
     }
   }
+
+  private def deleteContentRoute(ossClient: OSS,
+    config: OSSConfig,
+    companyName: String,
+    contentName: String)(implicit system: ActorSystem[Nothing], ec: ExecutionContext, materializer: ActorMaterializer): Route =
+      delete {
+        val objectListing = ossClient.listObjects(config.bucketName, companyName)
+        val sums = objectListing.getObjectSummaries().asScala.toList
+        val contents: Seq[OSSObjectSummary] = sums.filter(_.getKey.contains(contentName))
+        val deletes = contents.map(x => Try(ossClient.deleteObject(config.bucketName, x.getKey)))
+        contents.foreach(x => println(x.getKey))
+        deletes.foreach(x => println(x.failed))
+        if(deletes.exists(_.isFailure)){
+          complete(StatusCodes.BadGateway, "cannot remove all items")
+        } else
+        complete(StatusCodes.OK)
+      }
 
   private def contentJsonRoute(
     ossClient: OSS,
@@ -227,11 +248,14 @@ object RequestApi extends Json4sSupport {
           case Success(value) =>
             complete(value)
           case Failure(exception) =>
+            println(exception)
             complete(StatusCodes.BadGateway)
         }
       }
     }
   }
+
+
 
   private def contentUploadRoute(
     ossClient: OSS,
@@ -251,6 +275,7 @@ object RequestApi extends Json4sSupport {
             case Success(value) =>
               complete(value)
             case Failure(exception) =>
+              println(exception)
               complete(StatusCodes.BadGateway)
           }
       }
@@ -259,7 +284,10 @@ object RequestApi extends Json4sSupport {
       fileUpload("content") {
         case (fileInfo, fileStream: Source[ByteString, Any]) =>
           println(fileInfo)
-          val objectName = s"$companyName/$contentName/${fileInfo.fileName}"
+          val lastDot = fileInfo.fileName.lastIndexOf('.')
+          val ext = fileInfo.fileName.substring(lastDot, fileInfo.fileName.size)
+          println(ext)
+          val objectName = s"$companyName/$contentName/content$ext"
           println(objectName)
           val path: Path = Paths.get(s"${config.rootPath}/$companyName/$contentName/${fileInfo.fileName}")
 
@@ -267,6 +295,7 @@ object RequestApi extends Json4sSupport {
             case Success(value) =>
               complete(value)
             case Failure(exception) =>
+              println(exception)
               complete(StatusCodes.BadGateway)
           }
       }
@@ -285,6 +314,7 @@ object RequestApi extends Json4sSupport {
               println(value)
               complete(value)
             case Failure(exception) =>
+              println(exception)
               complete(StatusCodes.BadGateway)
           }
       }
@@ -306,7 +336,8 @@ object RequestApi extends Json4sSupport {
             println(userName)
             pathPrefix("content") {
               pathPrefix(Segment) { contentName =>
-                contentJsonRoute(ossClient, config, companyName, contentName) ~ contentUploadRoute(ossClient, config, companyName, contentName)
+                println(contentName)
+                deleteContentRoute(ossClient, config, companyName, contentName) ~ contentJsonRoute(ossClient, config, companyName, contentName) ~ contentUploadRoute(ossClient, config, companyName, contentName)
               }
             } ~ companyJsonRoute(ossClient, config, companyName) ~ companyUploadRoute(ossClient, config, companyName)
 
