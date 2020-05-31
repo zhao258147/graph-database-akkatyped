@@ -269,7 +269,7 @@ class GraphScenario extends Simulation {
 
   val visitorConf = http.shareConnections.contentTypeHeader("application/json")
   setUp(
-    vistorScn.inject(rampUsers(10) during (10 seconds))
+    vistorScn.inject(rampUsers(2) during (2 seconds))
   ).protocols(visitorConf)
 
 
