@@ -136,8 +136,8 @@ object UserNodeEntity {
 
   private def commandHandler(context: ActorContext[UserCommand[UserReply]])(implicit params: UserEntityParams): (UserState, UserCommand[UserReply]) => ReplyEffect[UserEvent, UserState] = {
     (state, command) =>
-      context.log.debug(command.toString)
-      context.log.debug(state.toString)
+//      context.log.debug(command.toString)
+//      context.log.debug(state.toString)
       state match {
         case empty: EmptyUserState =>
           command match {
@@ -173,7 +173,7 @@ object UserNodeEntity {
             case req: NodeVisitRequest =>
               val viewed = state.viewed.take(params.numberOfViewsToCheck)
               val evt = UserRequest(req.nodeId, req.tags, req.similarUsers.filterNot(_._1 == state.userId))
-              context.log.debug(evt.toString)
+//              context.log.debug(evt.toString)
               Effect
                 .persist(evt)
                 .thenReply(req.replyTo){
@@ -221,7 +221,7 @@ object UserNodeEntity {
                       acc + Math.min(labels.getOrElse(label, 0), labelWeight)
                   }
               }.filter(_._2 > params.labelWeightFilter)
-              println(state.similarUsers)
+//              println(state.similarUsers)
               Effect.reply(retrieve.replyTo)(UserInfo(state.userId, state.userType, state.properties, state.labels, state.viewed, state.bookmarkedNodes.keySet, state.bookmarkedUsers.keySet, state.bookmarkedBy.keySet, similarUser))
 
             case NeighbouringViewsRequest(userId, replyTo) =>

@@ -35,7 +35,7 @@ object HomePageRecommendationActor {
     trendingResp <- trendingNodesResponse
     userResp <- userHistoryResponse
   } yield {
-    println(userResp)
+//    println(userResp)
     userResp.neighbours.foreach{ userId =>
       userShardRegion ! ShardingEnvelope(
         userId,
@@ -82,7 +82,7 @@ object HomePageRecommendationActor {
           waitingForRecommendationReply(referral, None, None, None)
 
         case x =>
-          println(x)
+//          println(x)
           Behaviors.stopped
       }
 
@@ -119,14 +119,14 @@ object HomePageRecommendationActor {
             }.getOrElse(waitingForRecommendationReply(referral, Some(wrapperUserReply), nodeActorResponse, trendingNodesResponse))
 
         case HomePageRecommendationTimeout =>
-          println(s"(userHistoryResponse, nodeActorResponse, trendingNodesResponse) (${userHistoryResponse.isDefined}, ${nodeActorResponse.isDefined}, ${trendingNodesResponse.isDefined})")
+//          println(s"(userHistoryResponse, nodeActorResponse, trendingNodesResponse) (${userHistoryResponse.isDefined}, ${nodeActorResponse.isDefined}, ${trendingNodesResponse.isDefined})")
 
           //TODO: implement this to return any results that came back
           referral.replyTo ! HomePageRecoFailed(RecoTimeoutMessage)
           Behaviors.stopped
 
         case x =>
-          println(x)
+//          println(x)
           referral.replyTo ! HomePageRecoFailed(RecoUnknownError)
           Behaviors.stopped
       }
@@ -134,7 +134,7 @@ object HomePageRecommendationActor {
     def waitingForNeighbourViewsReply(referral: HomePageRecommendation, relevantNodes: Map[String, Int], trendingResp: TrendingNodesResponse, neighbours: Set[String], viewsCollected: Map[String, Int], userViewHistory: Seq[String], neighbourUsers: Seq[UserDisplayInfo]): Behavior[HomePageRecommendationCommand] =
       Behaviors.receiveMessage {
         case WrappedUserEntityResponse(wrapperUserReply: NeighbouringViews) =>
-          println(wrapperUserReply)
+//          println(wrapperUserReply)
           val neighboursLeft = neighbours - wrapperUserReply.userId
           val updatedViews = viewsCollected ++ wrapperUserReply.viewed.map{ nodeId =>
             nodeId -> (viewsCollected.getOrElse(nodeId, 0) + 1)
@@ -154,7 +154,7 @@ object HomePageRecommendationActor {
           Behaviors.stopped
 
         case x =>
-          println(x)
+//          println(x)
           referral.replyTo ! HomePageRecoFailed(RecoUnknownError)
           Behaviors.stopped
       }
@@ -171,7 +171,7 @@ object HomePageRecommendationActor {
           Behaviors.stopped
 
         case x =>
-          println(x)
+//          println(x)
           referral.replyTo ! HomePageRecoFailed(RecoUnknownError)
           Behaviors.stopped
       }

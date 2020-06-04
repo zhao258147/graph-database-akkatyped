@@ -133,9 +133,9 @@ object UserGraphQuery {
     val initial: Behavior[UserGraphQueryCommand] =
       Behaviors.receiveMessagePartial {
         case UserGraphQueryRequest(nodeIds, replyTo) =>
-          println(nodeIds)
+//          println(nodeIds)
           nodeIds.foreach{ node =>
-            println(node)
+//            println(node)
             shardRegion ! ShardingEnvelope(node, UserRetrievalCommand(node, userEntityResponseMapper))
           }
           collectResp(Set.empty, replyTo)

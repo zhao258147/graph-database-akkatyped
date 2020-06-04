@@ -45,7 +45,7 @@ object ClickReadSideActor {
       implicit val system: ActorSystem[Nothing] = context.system
       implicit val ec: ExecutionContextExecutor = system.executionContext
 
-      println("ClickReadSideActor started")
+//      println("ClickReadSideActor started")
       val queries = PersistenceQuery(system).readJournalFor[CassandraReadJournal](CassandraReadJournal.Identifier)
 
       val clickInsertStatement = session.prepare(s"INSERT INTO graph.clicks(company, id, ts, type, tags, clicks) VALUES (?, ?, ?, ?, ?, ?)")
@@ -143,7 +143,7 @@ object ClickReadSideActor {
       val waitingForOffset: Behavior[ClickStatCommands] =
         Behaviors.receiveMessagePartial {
           case ClickReadSideActorOffset(offset) =>
-            println(offset)
+//            println(offset)
             val createdStream: Source[EventEnvelope, NotUsed] = queries.eventsByTag(ClickUpdateEventName, offset)
             val stream: Future[Done] = createdStream
               .map {

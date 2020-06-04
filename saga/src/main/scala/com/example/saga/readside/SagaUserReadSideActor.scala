@@ -31,14 +31,14 @@ object SagaUserReadSideActor {
       implicit val system: ActorSystem[Nothing] = context.system
       implicit val ec: ExecutionContextExecutor = system.executionContext
 
-      println("SagaUserReadSideActor started")
+//      println("SagaUserReadSideActor started")
 
       val queries = PersistenceQuery(system).readJournalFor[CassandraReadJournal](CassandraReadJournal.Identifier)
       val createdStream: Source[EventEnvelope, NotUsed] = queries.eventsByTag(UserNodeEntity.UserUpdateTagName, NoOffset)
       createdStream
         .map {
           case ee@EventEnvelope(_, _, _, value: UserUpdated) =>
-            println(value)
+//            println(value)
             context.self ! UserInformationUpdate(value)
             ee
           case ee =>
@@ -49,7 +49,7 @@ object SagaUserReadSideActor {
       def updatesAndQueries(userMap: HashMap[String, UserUpdated]): Behavior[SagaUserReadSideCommand] =
         Behaviors.receiveMessagePartial{
           case UserInformationUpdate(node) =>
-            println(node)
+//            println(node)
             updatesAndQueries(userMap + (node.userId -> node))
 
           case RetrieveUsersQuery(replyTo, userIds) =>

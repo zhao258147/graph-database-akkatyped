@@ -90,10 +90,10 @@ class GraphScenario extends Simulation {
 
   def nodeReq(session: Session): CreateNodeReq = {
     val nodeId = session("nodeId").as[String]
-    println(nodeId)
+//    println(nodeId)
     val x = nodeId.substring(1,2)
     val y = nodeId.substring(3,4)
-    println(s"($x, $y)")
+//    println(s"($x, $y)")
     val nodetype = session("nodetype").as[String]
     val tag = session("tag").as[String]
 
@@ -212,7 +212,7 @@ class GraphScenario extends Simulation {
       session("userId").as[String],
       userInfo.labels
     )
-    println(nr)
+//    println(nr)
     nr
   }
 
@@ -239,9 +239,9 @@ class GraphScenario extends Simulation {
         val resp: NodeRecommendationSuccess = JsonMethods.parse(requestResponseStr).extract[NodeRecommendationSuccess]
         val selectFrom = resp.relevant ++ resp.neighbourHistory
         val targetNode = selectFrom.drop(rand.nextInt(selectFrom.size - 1)).head
-        println("x"*100)
-        println(targetNode)
-        println(session("userId").as[String])
+//        println("x"*100)
+//        println(targetNode)
+//        println(session("userId").as[String])
 
         session.set("targetNodeId", targetNode.node.nodeId)
       }

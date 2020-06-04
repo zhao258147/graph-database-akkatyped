@@ -37,7 +37,7 @@ object SagaNodeReadSideActor {
       implicit val system: ActorSystem[Nothing] = context.system
       implicit val ec: ExecutionContextExecutor = system.executionContext
 
-      println("SagaNodeReadSideActor started")
+//      println("SagaNodeReadSideActor started")
 
       val queries = PersistenceQuery(system).readJournalFor[CassandraReadJournal](CassandraReadJournal.Identifier)
       val createdStream: Source[EventEnvelope, NotUsed] = queries.eventsByTag(NodeUpdateEventName, NoOffset)
@@ -54,7 +54,7 @@ object SagaNodeReadSideActor {
       def collectNewNode(nodeMap: HashMap[String, NodeInfo]): Behavior[SagaNodeReadSideCommand] =
         Behaviors.receiveMessagePartial{
           case NodeInformationUpdate(node) =>
-            println(node)
+//            println(node)
             collectNewNode(nodeMap + (node.nodeId -> node))
 
           case retrieval: RetrieveNodesQuery =>

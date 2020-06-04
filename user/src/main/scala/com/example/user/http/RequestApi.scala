@@ -61,7 +61,7 @@ object RequestApi extends Json4sSupport {
               }
             )
           } ~
-          post {
+          put {
             entity(as[UpdateUserReq]) { req =>
               complete(
                 userCordinator.ask[UserReply] { ref: ActorRef[UserReply] =>
@@ -80,7 +80,7 @@ object RequestApi extends Json4sSupport {
             }
           }
         } ~
-        put {
+        post {
           entity(as[CreateUserReq]) { createCommand =>
             complete(
               userCordinator.ask[UserReply] { ref: ActorRef[UserReply] =>

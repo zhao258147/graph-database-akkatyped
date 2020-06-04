@@ -165,8 +165,8 @@ object GraphNodeEntity {
   private def commandHandler(context: ActorContext[GraphNodeCommand[GraphNodeCommandReply]])(implicit nodeParams: NodeEntityParams):
   (GraphNodeState, GraphNodeCommand[GraphNodeCommandReply]) => ReplyEffect[GraphNodeEvent, GraphNodeState] = {
     (state, command) =>
-      context.log.debug(s"$command")
-      context.log.debug(s"$state")
+//      context.log.debug(s"$command")
+//      context.log.debug(s"$state")
 
       state match {
         case _: EmptyGraphNodeState =>
@@ -375,7 +375,7 @@ object GraphNodeEntity {
             val targetEdges = createdState.outEdges.getOrElse(edgeType, Map.empty)
             val newTargetEdges = targetEdges + (nodeId -> updatedEdge)
 
-            context.log.debug(newTargetEdges.toString)
+//            context.log.debug(newTargetEdges.toString)
 
             val newUniqueVisitors =
               if(createdState.uniqueVisitors.contains(visitorId)) createdState.uniqueVisitors
@@ -429,7 +429,7 @@ object GraphNodeEntity {
             if(!targetEdges.contains(nodeId))
               CinnamonMetrics(context).createCounter("referrers", Map("nodeId" -> createdState.nodeId, "nodeType" -> createdState.nodeId, "companyId" -> createdState.companyId)).increment()
 
-            context.log.debug(newTargetEdges.toString)
+//            context.log.debug(newTargetEdges.toString)
 
             createdState.copy(
               inEdges = createdState.inEdges + (edgeType -> newTargetEdges)

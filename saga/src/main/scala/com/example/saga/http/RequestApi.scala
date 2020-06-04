@@ -45,7 +45,7 @@ object RequestApi extends Json4sSupport {
           entity(as[NodeReferralReq]) { referralReq: NodeReferralReq =>
             complete(
               system.ask[NodeRecommendationReply] { ref =>
-                println(referralReq.userLabels)
+//                println(referralReq.userLabels)
                 NodeRecoCommand(referralReq.nodeId, referralReq.userId, referralReq.userLabels, ref)
               }
             )

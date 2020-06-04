@@ -106,7 +106,7 @@ object NodeRecommendationActor {
           waitingForRecommendationReply(referral, None, None, None)
 
         case x =>
-          println(x)
+//          println(x)
           Behaviors.stopped
       }
 
@@ -139,7 +139,7 @@ object NodeRecommendationActor {
 
         case NodeRecommendationTimeout =>
           //TODO: implement this to return any results that came back
-          println(s"(recommendedResult, nodeActorResponse, trendingNodesResponse) (${recommendedResult.isDefined}, ${nodeActorResponse.isDefined}, ${trendingNodesResponse.isDefined})")
+//          println(s"(recommendedResult, nodeActorResponse, trendingNodesResponse) (${recommendedResult.isDefined}, ${nodeActorResponse.isDefined}, ${trendingNodesResponse.isDefined})")
           referral.replyTo ! NodeRecommendationFailed(RecoTimeoutMessage)
           Behaviors.stopped
 
@@ -151,7 +151,7 @@ object NodeRecommendationActor {
     def waitingForUserReply(referral: NodeReferral, nodeReply: RecommendedResult, nodeActorResponse: SagaNodesQueryResponse, trendingNodesResponse: TrendingNodesResponse): Behavior[NodeRecommendationCommand] =
       Behaviors.receiveMessagePartial {
         case WrappedUserEntityResponse(wrapperUserReply: NodeVisitRequestSuccess) =>
-          println(wrapperUserReply)
+//          println(wrapperUserReply)
 
           if(wrapperUserReply.neighbours.isEmpty) {
             sagaNodeReadSideActor ! RetrieveNodesQuery(nodeReply.tagMatching -- wrapperUserReply.recentViews, nodeReply.edgeWeight -- wrapperUserReply.recentViews, nodeActorResponse.list -- wrapperUserReply.recentViews, trendingNodesResponse.overallRanking, Map.empty, trendingNodesResponse.rankingByType, sagaNodeActorResponseMapper)
@@ -197,7 +197,7 @@ object NodeRecommendationActor {
 
         case NodeRecommendationTimeout =>
           //TODO: implement this to return any results that came back
-          println(s"(neighbours, updatedNeighboursInfo) (${neighbours}, ${neighbourUsers})")
+//          println(s"(neighbours, updatedNeighboursInfo) (${neighbours}, ${neighbourUsers})")
           referral.replyTo ! NodeRecommendationFailed(RecoTimeoutMessage)
           Behaviors.stopped
 
@@ -209,8 +209,8 @@ object NodeRecommendationActor {
     def waitingForFinalNeighbourViewsFilter(referral: NodeReferral, nodeReply: RecommendedResult, userReply: NodeVisitRequestSuccess, neighbourUsers: Seq[UserDisplayInfo]): Behavior[NodeRecommendationCommand] =
       Behaviors.receiveMessagePartial {
         case WrappedSagaNodeActorResponse(nodesResponse: SagaNodesInfoResponse) =>
-          println("WrappedSagaNodeActorResponse")
-          println(nodesResponse)
+//          println("WrappedSagaNodeActorResponse")
+//          println(nodesResponse)
           referral.replyTo ! NodeRecommendationSuccess(referral.userId, referral.nodeId, nodeReply.nodeType, nodeReply.tags, nodeReply.properties, userReply.updatedLabels, nodesResponse.tagMatching, nodesResponse.relevant, nodesResponse.edgeWeight, nodesResponse.trending, nodesResponse.trendingByTag, nodesResponse.neighbourHistory, neighbourUsers)
           Behaviors.stopped
 

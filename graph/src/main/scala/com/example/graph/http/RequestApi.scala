@@ -36,7 +36,7 @@ object RequestApi extends Json4sSupport {
 
     pathPrefix("api") {
       pathPrefix("graph") {
-        put {
+        post {
           entity(as[CreateNodeReq]) { createCommand =>
             complete(
               graphCordinator.ask[GraphNodeCommandReply] { ref: ActorRef[GraphNodeCommandReply] =>
@@ -192,7 +192,7 @@ object RequestApi extends Json4sSupport {
               }
             )
           } ~
-          post {
+          put {
             entity(as[UpdateNodeReq]) { update =>
               complete(
                 graphCordinator.ask[GraphNodeCommandReply] { ref =>

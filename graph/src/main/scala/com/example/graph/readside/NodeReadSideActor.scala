@@ -53,7 +53,6 @@ object NodeReadSideActor {
           import scala.collection.JavaConverters.mapAsJavaMap
           e.event match {
             case elemToInsert: GraphNodeUpdated =>
-              println(elemToInsert)
               statement.bind(
                 elemToInsert.companyId,
                 elemToInsert.id,
@@ -133,12 +132,12 @@ object NodeReadSideActor {
       val waiting: Behavior[NodeReadSideCommand] =
         Behaviors.receiveMessage {
           case ReadSideActorOffset(offset) =>
-            println(offset)
+//            println(offset)
             val createdStream: Source[EventEnvelope, NotUsed] = queries.eventsByTag(NodeUpdateEventName, offset)
             createdStream
               .map {
                 case ee@EventEnvelope(_, _, _, value: GraphNodeUpdated) =>
-                  println(value)
+//                  println(value)
                   context.self ! NodeInformationUpdate(NodeInfo(value.companyId, value.id, value.nodeType, value.tags, value.properties))
                   ee
                 case ee =>
