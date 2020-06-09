@@ -1,7 +1,9 @@
 package com.youda.ossupload.http
 
 import java.io.{BufferedReader, InputStreamReader}
+import java.nio.charset.StandardCharsets
 import java.nio.file.{Path, Paths}
+import java.security.MessageDigest
 
 import akka.actor.typed.ActorSystem
 import akka.http.scaladsl.model.{HttpRequest, StatusCodes}
@@ -26,17 +28,23 @@ import collection.JavaConverters._
 object RequestApi extends Json4sSupport {
   implicit val timeout: Timeout = 40 minutes
   implicit val formats: Formats = DefaultFormats
+  val md = MessageDigest.getInstance("MD5")
 
-  def myUserPassAuthenticator(credentials: Credentials, companyName: String): Option[String] =
+  def myUserPassAuthenticator(credentials: Credentials, companyName: String, salt: String): Option[String] = {
+    val md5 = md.digest((companyName + salt).getBytes(StandardCharsets.UTF_8)).map(0xFF & _).map { "%02x".format(_) }.foldLeft(""){_ + _}
+    val secret = md5.substring(0,3) + md5.substring(3,6).toUpperCase + md5.substring(6,10) + md5.substring(6,10).toUpperCase
+
     credentials match {
-      case p @ Credentials.Provided(id) if p.verify("p4ssw0rd") =>
+      case p @ Credentials.Provided(id) if p.verify(secret) =>
         Some(id)
-      case p @ Credentials.Provided(id) if p.verify(id) =>
-        Some(id)
+      case p @ Credentials.Provided(id) =>
+        Some("")
       case x =>
         println(x)
         None
     }
+  }
+
 
   def upload(ossClient: OSS, path: Path, fileStream: Source[ByteString, Any], objectName: String, bucketName: String)(implicit materializer: ActorMaterializer, ec: ExecutionContext): Try[Future[String]] = {
     val tryFile = Try {
@@ -332,15 +340,20 @@ object RequestApi extends Json4sSupport {
 //      logRequestPrintln(complete("logged"))
       pathPrefix("upload") {
         pathPrefix(Segment) { companyName =>
-          authenticateBasic(realm = "secure site", myUserPassAuthenticator(_, companyName)) { userName =>
-            println(userName)
-            pathPrefix("content") {
-              pathPrefix(Segment) { contentName =>
-                println(contentName)
-                deleteContentRoute(ossClient, config, companyName, contentName) ~ contentJsonRoute(ossClient, config, companyName, contentName) ~ contentUploadRoute(ossClient, config, companyName, contentName)
-              }
-            } ~ companyJsonRoute(ossClient, config, companyName) ~ companyUploadRoute(ossClient, config, companyName)
+          authenticateBasic(realm = "secure site", myUserPassAuthenticator(_, companyName, config.salt)) { userName =>
+            if(userName == "") {
+              println("password failed")
+              complete(StatusCodes.NonAuthoritativeInformation)
+            } else {
+              println(userName)
+              pathPrefix("content") {
+                pathPrefix(Segment) { contentName =>
+                  println(contentName)
+                  deleteContentRoute(ossClient, config, companyName, contentName) ~ contentJsonRoute(ossClient, config, companyName, contentName) ~ contentUploadRoute(ossClient, config, companyName, contentName)
+                }
+              } ~ companyJsonRoute(ossClient, config, companyName) ~ companyUploadRoute(ossClient, config, companyName)
 
+            }
           }
         }
       }

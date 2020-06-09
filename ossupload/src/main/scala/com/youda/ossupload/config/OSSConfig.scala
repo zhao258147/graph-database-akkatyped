@@ -6,7 +6,8 @@ case class OSSConfig(
   bucketName: String,
   endpoint: String,
   accessKeyId: String,
-  accessKeySecret: String
+  accessKeySecret: String,
+  salt: String
 )
 
 case class HttpConfig (
