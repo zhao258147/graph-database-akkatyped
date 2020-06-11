@@ -58,7 +58,6 @@ object GraphQueryActor {
     def queryInfo(allCollectedPairs: Seq[Set[PairNodes]], graph: List[QueryReq], replyTo: ActorRef[GraphQueryReply], curQuery: QueryReq, curNodes: Set[TargetNodeId] = Set.empty, nextNodes: Set[PairNodes] = Set.empty): Behavior[GraphQueryCommand] =
       Behaviors.receiveMessagePartial {
         case WrappedNodeEntityResponse(EdgeQueryResult(nodeId, _, tags, edges: Set[Edge], nodeResult)) =>
-          Thread.sleep(1000)
           val collectedNodes = curNodes + nodeId
           val toIds = edges.map(_.direction.nodeId)
           val toCollect = toIds.map(PairNodes(nodeId, _)) ++ nextNodes

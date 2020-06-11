@@ -100,33 +100,42 @@ object ClickReadSideActor {
         context.self ! OnStartNodeClickInfo(_)
       }
 
-      def collectClickStat(list: Seq[NodeClickInfo]): Behavior[ClickStatCommands] =
+      def calculateOverallList(list: Seq[NodeClickInfo]): Map[String, Int] = {
+        val unsortedOverallList: Map[String, Int] = list.foldLeft(Map.empty[String, Int]){
+          case (listAcc, nodeClick) =>
+            listAcc + (nodeClick.nodeId -> (listAcc.getOrElse(nodeClick.nodeId, 0) + nodeClick.clicks))
+        }
+        unsortedOverallList.toSeq.sortWith(_._2 > _._2).take(20).toMap
+      }
+
+      def collectClickStat(list: Seq[NodeClickInfo], sortedOverallList: Map[String, Int]): Behavior[ClickStatCommands] =
         Behaviors.receiveMessagePartial {
           case click: NodeClickInfo =>
-            val newList = if(list.size > 1000) list.take(900) else list
+            val newList = click +: (if(list.size > 1000) list.take(900) else list)
 
-            collectClickStat(click +: newList)
+            val sortedOverallList: Map[String, Int] = calculateOverallList(newList)
+
+            collectClickStat(newList, sortedOverallList)
 
           case TrendingNodesCommand(tags, replyTo) =>
-            val result = tags.foldLeft(Map.empty[String, Seq[(String, Int)]]){
-              case (acc, nodeType) =>
-                val unsortedNodeTypeList: Map[String, Int] = list.foldLeft(Map.empty[String, Int]){
-                  case (listAcc, nodeClick) if (nodeClick.tags & tags).nonEmpty =>
-                    listAcc + (nodeClick.nodeId -> (listAcc.getOrElse(nodeClick.nodeId, 0) + nodeClick.clicks))
-                  case (listAcc, _) =>
-                    listAcc
-                }
-                val sortedList = unsortedNodeTypeList.toSeq.sortWith(_._2 > _._2).take(5)
-                acc + (nodeType -> sortedList)
-            }
+//            val result = tags.foldLeft(Map.empty[String, Seq[(String, Int)]]){
+//              case (acc, nodeType) =>
+//                val unsortedNodeTypeList: Map[String, Int] = list.foldLeft(Map.empty[String, Int]){
+//                  case (listAcc, nodeClick) if (nodeClick.tags & tags).nonEmpty =>
+//                    listAcc + (nodeClick.nodeId -> (listAcc.getOrElse(nodeClick.nodeId, 0) + nodeClick.clicks))
+//                  case (listAcc, _) =>
+//                    listAcc
+//                }
+//                val sortedList = unsortedNodeTypeList.toSeq.sortWith(_._2 > _._2).take(5)
+//                acc + (nodeType -> sortedList)
+//            }
+//
+//            val unsortedOverallList: Map[String, Int] = list.foldLeft(Map.empty[String, Int]){
+//              case (listAcc, nodeClick) =>
+//                listAcc + (nodeClick.nodeId -> (listAcc.getOrElse(nodeClick.nodeId, 0) + nodeClick.clicks))
+//            }
 
-            val unsortedOverallList: Map[String, Int] = list.foldLeft(Map.empty[String, Int]){
-              case (listAcc, nodeClick) =>
-                listAcc + (nodeClick.nodeId -> (listAcc.getOrElse(nodeClick.nodeId, 0) + nodeClick.clicks))
-            }
-            val sortedOverallList = unsortedOverallList.toSeq.sortWith(_._2 > _._2).take(20).toMap
-
-            replyTo ! TrendingNodesResponse(sortedOverallList, result)
+            replyTo ! TrendingNodesResponse(sortedOverallList, Map.empty)
             Behaviors.same
         }
 
@@ -134,7 +143,8 @@ object ClickReadSideActor {
         Behaviors.receiveMessagePartial {
           case OnStartNodeClickInfo(list) =>
             context.log.debug(list.toString)
-            buffer.unstashAll(collectClickStat(list))
+            context.log.debug(calculateOverallList(list).toString)
+            buffer.unstashAll(collectClickStat(list, calculateOverallList(list)))
           case x =>
             buffer.stash(x)
             Behaviors.same
