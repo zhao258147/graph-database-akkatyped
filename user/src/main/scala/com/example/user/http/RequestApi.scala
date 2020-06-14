@@ -35,7 +35,7 @@ object RequestApi extends Json4sSupport {
               userCordinator.ask[UserReply] { ref: ActorRef[UserReply] =>
                 ShardingEnvelope(
                   req.userId,
-                  NodeVisitRequest(req.userId, req.nodeId, req.tags, req.similarUsers, ref)
+                  NodeVisitRequest(req.userId, req.nodeId, req.tags, req.similarUsers, NodeReferralBias(), ref)
                 )
               }
             )
@@ -70,10 +70,15 @@ object RequestApi extends Json4sSupport {
                       req.userId,
                       UpdateUserPropertiesCommand(req.userId, req.properties, ref)
                     )
+                  else if(req.properties.isEmpty)
+                    ShardingEnvelope(
+                      req.userId,
+                      UpdateUserLabelsCommand(req.userId, req.labels, ref)
+                    )
                   else
                     ShardingEnvelope(
                       req.userId,
-                      UpdateUserCommand(req.userId, req.userType, req.properties, req.labels, ref)
+                      UpdateUserCommand(req.userId, req.properties, req.labels, ref)
                     )
                 }
               )

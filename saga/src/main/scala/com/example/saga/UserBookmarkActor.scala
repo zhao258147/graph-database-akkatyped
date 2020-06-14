@@ -45,8 +45,6 @@ object UserBookmarkActor {
     def waitingForTargetUserReply(bookmark: BookmarkUser): Behavior[UserBookmarkCommand] =
       Behaviors.receiveMessagePartial {
         case WrappedUserEntityResponse(wrapperUserReply: BookmarkedBySuccess) =>
-//          println(wrapperUserReply)
-
           userShardRegion ! ShardingEnvelope(
             bookmark.userId,
             UserBookmarkRequest(
@@ -70,7 +68,6 @@ object UserBookmarkActor {
           Behaviors.stopped
 
         case x =>
-//          println(x)
           bookmark.replyTo ! UserBookmarkSagaFailed("did not receive UserBookmarkSuccess message")
           Behaviors.stopped
       }

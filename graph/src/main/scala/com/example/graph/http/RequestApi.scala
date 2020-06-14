@@ -31,31 +31,19 @@ object RequestApi extends Json4sSupport {
   def route(
     graphCordinator: ActorRef[ShardingEnvelope[GraphNodeCommand[GraphNodeCommandReply]]],
     graphActorSupervisor: ActorRef[GraphActorSupervisor.GraphQuerySupervisorCommand],
+    clickReadSideActor: ActorRef[ClickReadSideActor.ClickStatCommands]
   )(implicit system: akka.actor.typed.ActorSystem[Nothing], ec: ExecutionContext, session: Session): Route = {
-
-
     pathPrefix("api") {
       pathPrefix("graph") {
-        post {
-          entity(as[CreateNodeReq]) { createCommand =>
+        pathPrefix("trending") {
+          get {
             complete(
-              graphCordinator.ask[GraphNodeCommandReply] { ref: ActorRef[GraphNodeCommandReply] =>
-                ShardingEnvelope(createCommand.nodeId, CreateNodeCommand(createCommand.nodeId, createCommand.nodeType, createCommand.companyId, createCommand.tags, createCommand.properties, ref))
+              clickReadSideActor.ask[TrendingNodesResponse] { ref =>
+                TrendingNodesCommand(ref)
               }
             )
           }
         } ~
-//        pathPrefix("trending") {
-//          post {
-//            entity(as[TrendingNodesReq]) { query =>
-//              complete(
-//                clickReadSideActor.ask[TrendingNodesResponse] { ref =>
-//                  TrendingNodesCommand(query.tags, ref)
-//                }
-//              )
-//            }
-//          }
-//        } ~
 //        pathPrefix("relevant") {
 //          post {
 //            entity(as[RelevantNodesReq]) { query =>
@@ -200,6 +188,15 @@ object RequestApi extends Json4sSupport {
                 }
               )
             }
+          }
+        } ~
+        post {
+          entity(as[CreateNodeReq]) { createCommand =>
+            complete(
+              graphCordinator.ask[GraphNodeCommandReply] { ref: ActorRef[GraphNodeCommandReply] =>
+                ShardingEnvelope(createCommand.nodeId, CreateNodeCommand(createCommand.nodeId, createCommand.nodeType, createCommand.companyId, createCommand.tags, createCommand.properties, ref))
+              }
+            )
           }
         }
       }

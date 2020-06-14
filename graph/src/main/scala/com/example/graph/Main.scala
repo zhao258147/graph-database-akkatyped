@@ -82,7 +82,7 @@ object Main extends App {
 
   val graphQuerySupervisor = system.spawn(GraphActorSupervisor.apply(shardRegion), "graphQuerySupervisor")
 
-  val route: Route = RequestApi.route(shardRegion, graphQuerySupervisor)
+  val route: Route = RequestApi.route(shardRegion, graphQuerySupervisor, clickReadSideActor)
 
   private val cors = new CORSHandler {}
 

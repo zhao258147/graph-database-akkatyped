@@ -25,6 +25,7 @@ object ClickReadSideActor {
       new JsonSubTypes.Type(value = classOf[ClickReadSideActorOffset], name = "ClickReadSideActorOffset"),
       new JsonSubTypes.Type(value = classOf[NodeClickInfo], name = "NodeClickInfo"),
       new JsonSubTypes.Type(value = classOf[OnStartNodeClickInfo], name = "OnStartNodeClickInfo"),
+      new JsonSubTypes.Type(value = classOf[TrendingNodesByTypeCommand], name = "TrendingNodesByTypeCommand"),
       new JsonSubTypes.Type(value = classOf[TrendingNodesCommand], name = "TrendingNodesCommand")))
   sealed trait ClickStatCommands
 
@@ -33,9 +34,10 @@ object ClickReadSideActor {
   case class NodeClickInfo(company: String, nodeId: String, tags: Set[String], ts: Long, clicks: Int) extends ClickStatCommands
 
   case class OnStartNodeClickInfo(list: Seq[NodeClickInfo]) extends ClickStatCommands
-  case class TrendingNodesCommand(tags: Set[String], replyTo: ActorRef[TrendingNodesResponse]) extends ClickStatCommands
+  case class TrendingNodesCommand(replyTo: ActorRef[TrendingNodesResponse]) extends ClickStatCommands
+  case class TrendingNodesByTypeCommand(types: Set[String], replyTo: ActorRef[TrendingNodesResponse]) extends ClickStatCommands
 
-  case class TrendingNodesResponse(overallRanking: Map[String, Int], rankingByType: Map[String, Seq[(String, Int)]])
+  case class TrendingNodesResponse(overallRanking: Map[String, Int])
 
   def behaviour(
     readSideConfig: ReadSideConfig,
@@ -112,30 +114,27 @@ object ClickReadSideActor {
         Behaviors.receiveMessagePartial {
           case click: NodeClickInfo =>
             val newList = click +: (if(list.size > 1000) list.take(900) else list)
-
+            //            val result = tags.foldLeft(Map.empty[String, Seq[(String, Int)]]){
+            //              case (acc, nodeType) =>
+            //                val unsortedNodeTypeList: Map[String, Int] = list.foldLeft(Map.empty[String, Int]){
+            //                  case (listAcc, nodeClick) if (nodeClick.tags & tags).nonEmpty =>
+            //                    listAcc + (nodeClick.nodeId -> (listAcc.getOrElse(nodeClick.nodeId, 0) + nodeClick.clicks))
+            //                  case (listAcc, _) =>
+            //                    listAcc
+            //                }
+            //                val sortedList = unsortedNodeTypeList.toSeq.sortWith(_._2 > _._2).take(5)
+            //                acc + (nodeType -> sortedList)
+            //            }
             val sortedOverallList: Map[String, Int] = calculateOverallList(newList)
 
             collectClickStat(newList, sortedOverallList)
 
-          case TrendingNodesCommand(tags, replyTo) =>
-//            val result = tags.foldLeft(Map.empty[String, Seq[(String, Int)]]){
-//              case (acc, nodeType) =>
-//                val unsortedNodeTypeList: Map[String, Int] = list.foldLeft(Map.empty[String, Int]){
-//                  case (listAcc, nodeClick) if (nodeClick.tags & tags).nonEmpty =>
-//                    listAcc + (nodeClick.nodeId -> (listAcc.getOrElse(nodeClick.nodeId, 0) + nodeClick.clicks))
-//                  case (listAcc, _) =>
-//                    listAcc
-//                }
-//                val sortedList = unsortedNodeTypeList.toSeq.sortWith(_._2 > _._2).take(5)
-//                acc + (nodeType -> sortedList)
-//            }
-//
-//            val unsortedOverallList: Map[String, Int] = list.foldLeft(Map.empty[String, Int]){
-//              case (listAcc, nodeClick) =>
-//                listAcc + (nodeClick.nodeId -> (listAcc.getOrElse(nodeClick.nodeId, 0) + nodeClick.clicks))
-//            }
+          case TrendingNodesCommand(replyTo) =>
+            replyTo ! TrendingNodesResponse(sortedOverallList)
+            Behaviors.same
 
-            replyTo ! TrendingNodesResponse(sortedOverallList, Map.empty)
+          case TrendingNodesByTypeCommand(types, replyTo) =>
+            replyTo ! TrendingNodesResponse(sortedOverallList)
             Behaviors.same
         }
 

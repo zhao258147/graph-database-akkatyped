@@ -32,5 +32,6 @@ case class UserEntityParams (
   labelWeightFilter: Int,
   nodeBookmarkBias: Int,
   userBookmarkBias: Int,
-  nodeVisitBias: Int
+  nodeVisitBias: Int,
+  nodeSearchBias: Int
 )

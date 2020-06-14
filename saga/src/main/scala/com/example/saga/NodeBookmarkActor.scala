@@ -70,7 +70,6 @@ object NodeBookmarkActor {
           Behaviors.stopped
 
         case x =>
-//          println(x)
           bookmark.replyTo ! NodeBookmarkReqFailed("Did not receive NodeQueryResult message")
           Behaviors.stopped
       }
@@ -82,7 +81,6 @@ object NodeBookmarkActor {
           Behaviors.stopped
 
         case x =>
-//          println(x)
           bookmark.replyTo ! NodeBookmarkReqFailed("Did not receive NodeBookmarkSuccess message")
           Behaviors.stopped
       }

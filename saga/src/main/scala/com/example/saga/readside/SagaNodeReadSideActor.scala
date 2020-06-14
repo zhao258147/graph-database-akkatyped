@@ -54,7 +54,7 @@ object SagaNodeReadSideActor {
       def collectNewNode(nodeMap: HashMap[String, NodeInfo]): Behavior[SagaNodeReadSideCommand] =
         Behaviors.receiveMessagePartial{
           case NodeInformationUpdate(node) =>
-//            println(node)
+            context.log.debug(node.toString)
             collectNewNode(nodeMap + (node.nodeId -> node))
 
           case retrieval: RetrieveNodesQuery =>

@@ -15,14 +15,29 @@ object UserNodeEntity {
   @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
   @JsonSubTypes(
     Array(
+      new JsonSubTypes.Type(value = classOf[NodeReferralBias], name = "NodeReferralBias"),
+      new JsonSubTypes.Type(value = classOf[NodeSearchBias], name = "NodeSearchBias")
+    )
+  )
+  sealed trait NodeVisitBias
+  case class NodeReferralBias() extends NodeVisitBias
+  case class NodeSearchBias() extends NodeVisitBias
+
+  @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+  @JsonSubTypes(
+    Array(
       new JsonSubTypes.Type(value = classOf[CreateUserCommand], name = "CreateUserCommand"),
       new JsonSubTypes.Type(value = classOf[UpdateUserCommand], name = "UpdateUserCommand"),
       new JsonSubTypes.Type(value = classOf[UpdateUserPropertiesCommand], name = "UpdateUserPropertiesCommand"),
+      new JsonSubTypes.Type(value = classOf[UpdateUserLabelsCommand], name = "UpdateUserLabelsCommand"),
       new JsonSubTypes.Type(value = classOf[NodeVisitRequest], name = "NodeVisitRequest"),
       new JsonSubTypes.Type(value = classOf[UserHistoryRetrivalRequest], name = "UserHistoryRetrivalRequest"),
       new JsonSubTypes.Type(value = classOf[NodeBookmarkRequest], name = "NodeBookmarkRequest"),
+      new JsonSubTypes.Type(value = classOf[RemoveNodeBookmarkRequest], name = "RemoveNodeBookmarkRequest"),
       new JsonSubTypes.Type(value = classOf[UserBookmarkRequest], name = "UserBookmarkRequest"),
+      new JsonSubTypes.Type(value = classOf[RemoveUserBookmarkRequest], name = "RemoveUserBookmarkRequest"),
       new JsonSubTypes.Type(value = classOf[BookmarkedByRequest], name = "BookmarkedByRequest"),
+      new JsonSubTypes.Type(value = classOf[RemoveBookmarkedByRequest], name = "RemoveBookmarkedByRequest"),
       new JsonSubTypes.Type(value = classOf[UserRetrievalCommand], name = "UserRetrievalCommand"),
       new JsonSubTypes.Type(value = classOf[NeighbouringViewsRequest], name = "NeighbouringViewsRequest"),
       new JsonSubTypes.Type(value = classOf[UserEntityParamsUpdate], name = "UserEntityParamsUpdate")
@@ -34,13 +49,21 @@ object UserNodeEntity {
   }
 
   case class CreateUserCommand(userId: UserId, userType: String, properties: Map[String, String], labels: Map[String, Int], replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
-  case class UpdateUserCommand(userId: UserId, userType: String, properties: Map[String, String], labels: Map[String, Int], replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
+  case class UpdateUserCommand(userId: UserId, properties: Map[String, String], labels: Map[String, Int], replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
   case class UpdateUserPropertiesCommand(userId: UserId, properties: Map[String, String], replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
-  case class NodeVisitRequest(userId: UserId, nodeId: String, tags: Map[String, Int], similarUsers: Map[String, Map[String, Int]], replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
+  case class UpdateUserLabelsCommand(userId: UserId, labels: Map[String, Int], replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
+  case class NodeVisitRequest(userId: UserId, nodeId: String, tags: Map[String, Int], similarUsers: Map[String, Map[String, Int]], bias: NodeVisitBias = NodeReferralBias(), replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
   case class UserHistoryRetrivalRequest(userId: UserId, replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
+
   case class NodeBookmarkRequest(userId: UserId, nodeId: String, tags: Map[String, Int], replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
+  case class RemoveNodeBookmarkRequest(userId: UserId, nodeId: String, replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
+
   case class UserBookmarkRequest(userId: UserId, targetUserId: String, labels: Map[String, Int], replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
+  case class RemoveUserBookmarkRequest(userId: UserId, targetUserId: String, replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
+
   case class BookmarkedByRequest(userId: UserId, bookmarkUser: String, replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
+  case class RemoveBookmarkedByRequest(userId: UserId, bookmarkUser: String, replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
+
   case class UserRetrievalCommand(userId: UserId, replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
   case class NeighbouringViewsRequest(userId: UserId, replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
   case class UserEntityParamsUpdate(userId: UserId, numberOfSimilarUsers: Option[Int], numberOfViewsToCheck: Option[Int], labelWeightFilter: Option[Int], nodeBookmarkBias: Option[Int], userBookmarkBias: Option[Int], nodeVisitBias: Option[Int], replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
@@ -62,7 +85,7 @@ object UserNodeEntity {
   sealed trait UserReply {
     val userId: UserId
   }
-  case class UserCommandSuccess(userId: UserId) extends UserReply
+  case class UserCommandSuccess(userId: UserId, labels: Map[String, Int]) extends UserReply
   case class NodeVisitRequestSuccess(userId: UserId, updatedLabels: Map[String, Int], neighbours: Set[UserId], recentViews: Seq[String]) extends UserReply
   case class UserHistoryResponse(userId: UserId, neighbours: Set[UserId], viewed: Seq[String]) extends UserReply
   case class UserCommandFailed(userId: UserId, error: String) extends UserReply
@@ -79,17 +102,28 @@ object UserNodeEntity {
       new JsonSubTypes.Type(value = classOf[NodeBookmarked], name = "NodeBookmarked"),
       new JsonSubTypes.Type(value = classOf[UserBookmarked], name = "UserBookmarked"),
       new JsonSubTypes.Type(value = classOf[BookmarkedBy], name = "BookmarkedBy"),
+      new JsonSubTypes.Type(value = classOf[RemoveNodeBookmarked], name = "RemoveNodeBookmarked"),
+      new JsonSubTypes.Type(value = classOf[RemoveUserBookmarked], name = "RemoveUserBookmarked"),
+      new JsonSubTypes.Type(value = classOf[RemoveBookmarkedBy], name = "RemoveBookmarkedBy"),
       new JsonSubTypes.Type(value = classOf[UserRequest], name = "UserRequest"),
       new JsonSubTypes.Type(value = classOf[ParamsUpdate], name = "ParamsUpdate")
     )
   )
-  sealed trait UserEvent
-  case class UserUpdated(userId: UserId, userType: String, properties: Map[String, String], labels: Map[String, Int]) extends UserEvent
-  case class NodeBookmarked(userId: UserId, nodeId: String, tags: Map[String, Int], ts: Long) extends UserEvent
-  case class UserBookmarked(userId: UserId, targetUserId: String, labels: Map[String, Int], ts: Long) extends UserEvent
-  case class BookmarkedBy(userId: UserId, bookmarkUser: String, ts: Long) extends UserEvent
-  case class UserRequest(nodeId: String, tags: Map[String, Int], similarUsers: Map[String, Map[String, Int]]) extends UserEvent
-  case class ParamsUpdate(userId: UserId, numberOfSimilarUsers: Option[Int], numberOfViewsToCheck: Option[Int], labelWeightFilter: Option[Int], nodeBookmarkBias: Option[Int], userBookmarkBias: Option[Int], nodeVisitBias: Option[Int]) extends UserEvent
+  sealed trait UserEvent {
+    val ts: Long
+  }
+  case class UserUpdated(userId: UserId, userType: String, properties: Map[String, String], labels: Map[String, Int], ts: Long = System.currentTimeMillis()) extends UserEvent
+
+  case class NodeBookmarked(userId: UserId, nodeId: String, tags: Map[String, Int], ts: Long = System.currentTimeMillis()) extends UserEvent
+  case class UserBookmarked(userId: UserId, targetUserId: String, labels: Map[String, Int], ts: Long = System.currentTimeMillis()) extends UserEvent
+  case class BookmarkedBy(userId: UserId, bookmarkUser: String, ts: Long = System.currentTimeMillis()) extends UserEvent
+
+  case class RemoveNodeBookmarked(userId: UserId, nodeId: String, ts: Long = System.currentTimeMillis()) extends UserEvent
+  case class RemoveUserBookmarked(userId: UserId, targetUserId: String, ts: Long = System.currentTimeMillis()) extends UserEvent
+  case class RemoveBookmarkedBy(userId: UserId, bookmarkUser: String, ts: Long = System.currentTimeMillis()) extends UserEvent
+
+  case class UserRequest(nodeId: String, tags: Map[String, Int], similarUsers: Map[String, Map[String, Int]], bias: NodeVisitBias = NodeReferralBias(), ts: Long = System.currentTimeMillis()) extends UserEvent
+  case class ParamsUpdate(userId: UserId, numberOfSimilarUsers: Option[Int], numberOfViewsToCheck: Option[Int], labelWeightFilter: Option[Int], nodeBookmarkBias: Option[Int], userBookmarkBias: Option[Int], nodeVisitBias: Option[Int], ts: Long = System.currentTimeMillis()) extends UserEvent
 
   @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
   @JsonSubTypes(
@@ -115,7 +149,8 @@ object UserNodeEntity {
     labelWeightFilterOpt: Option[Int] = None,
     nodeBookmarkBiasOpt: Option[Int] = None,
     userBookmarkBiasOpt: Option[Int] = None,
-    nodeVisitBiasOpt: Option[Int] = None
+    nodeVisitBiasOpt: Option[Int] = None,
+    nodeSearchBiasOpt: Option[Int] = None
   ) extends UserState {
     def numberOfSimilarUsers(implicit params: UserEntityParams): Int = numberOfSimilarUsersOpt.getOrElse(params.numberOfSimilarUsers)
     def numberOfViewsToCheck(implicit params: UserEntityParams): Int = numberOfViewsToCheckOpt.getOrElse(params.numberOfViewsToCheck)
@@ -123,6 +158,7 @@ object UserNodeEntity {
     def nodeBookmarkBias(implicit params: UserEntityParams): Int = nodeBookmarkBiasOpt.getOrElse(params.nodeBookmarkBias)
     def userBookmarkBias(implicit params: UserEntityParams): Int = userBookmarkBiasOpt.getOrElse(params.userBookmarkBias)
     def nodeVisitBias(implicit params: UserEntityParams): Int = nodeVisitBiasOpt.getOrElse(params.nodeVisitBias)
+    def nodeSearchBias(implicit params: UserEntityParams): Int = nodeSearchBiasOpt.getOrElse(params.nodeSearchBias)
   }
 
   private def rankSimilarUsers(withNewSimilarUsers: Map[String, Map[String, Int]], updatedLabels: Map[String, Int]) =
@@ -144,7 +180,7 @@ object UserNodeEntity {
             case cmd: CreateUserCommand =>
               Effect
                 .persist(UserUpdated(cmd.userId, cmd.userType, cmd.properties, cmd.labels))
-                .thenReply(cmd.replyTo)(_ => UserCommandSuccess(cmd.userId))
+                .thenReply(cmd.replyTo)(_ => UserCommandSuccess(cmd.userId, cmd.labels))
 
             case cmd =>
               Effect.reply(cmd.replyTo)(UserCommandFailed(cmd.userId, "User does not exist"))
@@ -153,26 +189,38 @@ object UserNodeEntity {
         case state: CreatedUserState =>
           command match {
             case cmd: CreateUserCommand =>
-              Effect.reply(cmd.replyTo)(UserCommandFailed(cmd.userId, "User already exists"))
+              println(cmd)
+              println(state)
+              if(state.properties == cmd.properties)
+                Effect.reply(cmd.replyTo)(UserCommandSuccess(cmd.userId, state.labels))
+              else
+                Effect
+                  .persist(UserUpdated(cmd.userId, cmd.userType, cmd.properties, state.labels))
+                  .thenReply(cmd.replyTo)(_ => UserCommandSuccess(cmd.userId, state.labels))
 
             case update: UpdateUserCommand =>
               Effect
-                .persist(UserUpdated(update.userId, update.userType, update.properties, update.labels))
-                .thenReply(update.replyTo)(_ => UserCommandSuccess(update.userId))
+                .persist(UserUpdated(update.userId, state.userType, update.properties, update.labels))
+                .thenReply(update.replyTo)(_ => UserCommandSuccess(update.userId, state.labels))
 
             case update: UserEntityParamsUpdate =>
               Effect
                 .persist(ParamsUpdate(update.userId, update.numberOfSimilarUsers, update.numberOfViewsToCheck, update.labelWeightFilter, update.nodeBookmarkBias, update.userBookmarkBias, update.nodeVisitBias))
-                .thenReply(update.replyTo)(_ => UserCommandSuccess(update.userId))
+                .thenReply(update.replyTo)(_ => UserCommandSuccess(update.userId, state.labels))
 
             case update: UpdateUserPropertiesCommand =>
               Effect
                 .persist(UserUpdated(update.userId, state.userType, update.properties, state.labels))
-                .thenReply(update.replyTo)(_ => UserCommandSuccess(update.userId))
+                .thenReply(update.replyTo)(_ => UserCommandSuccess(update.userId, state.labels))
+
+            case update: UpdateUserLabelsCommand =>
+              Effect
+                .persist(UserUpdated(update.userId, state.userType, state.properties, update.labels))
+                .thenReply(update.replyTo)(_ => UserCommandSuccess(update.userId, state.labels))
 
             case req: NodeVisitRequest =>
               val viewed = state.viewed.take(params.numberOfViewsToCheck)
-              val evt = UserRequest(req.nodeId, req.tags, req.similarUsers.filterNot(_._1 == state.userId))
+              val evt = UserRequest(req.nodeId, req.tags, req.similarUsers.filterNot(_._1 == state.userId), req.bias)
 //              context.log.debug(evt.toString)
               Effect
                 .persist(evt)
@@ -198,6 +246,11 @@ object UserNodeEntity {
                     UserCommandFailed(bookmark.userId, UserStateErrorMessage)
                 }
 
+            case removeBookmark: RemoveNodeBookmarkRequest =>
+              Effect
+                .persist(RemoveNodeBookmarked(removeBookmark.userId, removeBookmark.nodeId))
+                .thenReply(removeBookmark.replyTo)(_ => UserCommandSuccess(removeBookmark.userId, state.labels))
+
             case bookmark: UserBookmarkRequest =>
               Effect
                 .persist(UserBookmarked(bookmark.userId, bookmark.targetUserId, bookmark.labels, System.currentTimeMillis()))
@@ -208,10 +261,20 @@ object UserNodeEntity {
                     UserCommandFailed(bookmark.userId, UserStateErrorMessage)
                 }
 
+            case removeUserBookmark: RemoveUserBookmarkRequest =>
+              Effect
+                .persist(RemoveUserBookmarked(removeUserBookmark.userId, removeUserBookmark.targetUserId))
+                .thenReply(removeUserBookmark.replyTo)(_ => UserCommandSuccess(removeUserBookmark.userId, state.labels))
+
             case bookmark: BookmarkedByRequest =>
               Effect
                 .persist(BookmarkedBy(bookmark.userId, bookmark.bookmarkUser, System.currentTimeMillis()))
                 .thenReply(bookmark.replyTo)(_ => BookmarkedBySuccess(bookmark.userId, state.labels))
+
+            case removeBookmarkedBy: RemoveBookmarkedByRequest =>
+              Effect
+                .persist(RemoveBookmarkedBy(removeBookmarkedBy.userId, removeBookmarkedBy.bookmarkUser))
+                .thenReply(removeBookmarkedBy.replyTo)(_ => UserCommandSuccess(removeBookmarkedBy.userId, state.labels))
 
             case retrieve: UserRetrievalCommand =>
               val similarUser = state.similarUsers.map{
@@ -313,16 +376,32 @@ object UserNodeEntity {
             case by: BookmarkedBy =>
               created.copy(bookmarkedBy = created.bookmarkedBy + (by.bookmarkUser -> by))
 
+
+            case remove: RemoveNodeBookmarked =>
+              created.copy(bookmarkedNodes = created.bookmarkedNodes - remove.nodeId)
+
+            case remove: RemoveUserBookmarked =>
+              created.copy(bookmarkedUsers = created.bookmarkedUsers - remove.targetUserId)
+
+            case remove: RemoveBookmarkedBy =>
+              created.copy(bookmarkedBy = created.bookmarkedBy - remove.bookmarkUser)
+
             case req: UserRequest =>
               val updatedViews = req.nodeId +: created.viewed
+              val bias = req.bias match {
+                case _: NodeReferralBias =>
+                  created.nodeVisitBias
+                case _: NodeSearchBias =>
+                  created.nodeSearchBias
+              }
 
               val updatedLabels: Map[String, Int] =
                 if(created.viewed.contains(req.nodeId))
                   created.labels
                 else
-                  req.tags.mapValues(_/updatedViews.size * created.nodeVisitBias) ++ created.labels.foldLeft(Map.empty[String, Int]){
+                  req.tags.mapValues(_/updatedViews.size * bias) ++ created.labels.foldLeft(Map.empty[String, Int]){
                     case (acc, (label, weight)) =>
-                      acc + (label -> (weight * updatedViews.size + (req.tags.getOrElse(label, 0) * created.nodeVisitBias)) / (updatedViews.size + 1))
+                      acc + (label -> (weight * updatedViews.size + (req.tags.getOrElse(label, 0) * bias)) / (updatedViews.size + 1))
                   }
 
               val withNewSimilarUsers = created.similarUsers ++ req.similarUsers
@@ -337,6 +416,7 @@ object UserNodeEntity {
                 viewed = updatedViews,
                 similarUsers = updatedSimilarUsers
               )
+
           }
       }
   }

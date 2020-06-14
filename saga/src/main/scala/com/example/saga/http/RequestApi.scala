@@ -14,10 +14,12 @@ import com.example.saga.NodeBookmarkActor.NodeBookmarkReply
 import com.example.saga.NodeRecommendationActor.NodeRecommendationReply
 import com.example.saga.UserBookmarkActor.UserBookmarkReply
 import com.example.saga.http.Requests._
+import com.example.user.UserNodeEntity
+import com.example.user.UserNodeEntity._
 import de.heikoseeberger.akkahttpjson4s.Json4sSupport
 import org.json4s.{DefaultFormats, Formats, native}
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 
 object RequestApi extends Json4sSupport {
@@ -26,7 +28,8 @@ object RequestApi extends Json4sSupport {
   implicit val formats: Formats = DefaultFormats
 
   def route(
-    graphCordinator: ActorRef[ShardingEnvelope[GraphNodeCommand[GraphNodeCommandReply]]]
+    graphCordinator: ActorRef[ShardingEnvelope[GraphNodeCommand[GraphNodeCommandReply]]],
+    userCordinator: ActorRef[ShardingEnvelope[UserCommand[UserReply]]]
   )(implicit system: ActorSystem[SagaCommand], ec: ExecutionContext, session: Session): Route = {
     pathPrefix("api") {
       pathPrefix("home") {
@@ -45,8 +48,18 @@ object RequestApi extends Json4sSupport {
           entity(as[NodeReferralReq]) { referralReq: NodeReferralReq =>
             complete(
               system.ask[NodeRecommendationReply] { ref =>
-//                println(referralReq.userLabels)
-                NodeRecoCommand(referralReq.nodeId, referralReq.userId, referralReq.userLabels, ref)
+                NodeRecoCommand(referralReq.nodeId, referralReq.userId, referralReq.userLabels, UserNodeEntity.NodeReferralBias(), ref)
+              }
+            )
+          }
+        }
+      } ~
+      pathPrefix("search") {
+        post {
+          entity(as[NodeReferralReq]) { referralReq: NodeReferralReq =>
+            complete(
+              system.ask[NodeRecommendationReply] { ref =>
+                NodeRecoCommand(referralReq.nodeId, referralReq.userId, referralReq.userLabels, UserNodeEntity.NodeSearchBias(), ref)
               }
             )
           }
@@ -73,6 +86,21 @@ object RequestApi extends Json4sSupport {
                 }
               )
             }
+          } ~
+          delete {
+            entity(as[RemoveUserBookmarkReq]) { req: RemoveUserBookmarkReq =>
+              val removeBookmarkReq: Future[UserReply] = for {
+                removeBookmark <- userCordinator.ask[UserReply] { ref: ActorRef[UserReply] =>
+                  ShardingEnvelope(req.userId, RemoveUserBookmarkRequest(req.userId, req.targetUserId, ref))
+                }
+                _ <- userCordinator.ask[UserReply] { ref: ActorRef[UserReply] =>
+                  ShardingEnvelope(req.targetUserId, RemoveBookmarkedByRequest(req.targetUserId, req.userId, ref))
+                }
+              } yield {
+                removeBookmark
+              }
+              complete(removeBookmarkReq)
+            }
           }
         } ~
         pathPrefix("node") {
@@ -81,6 +109,15 @@ object RequestApi extends Json4sSupport {
               complete(
                 system.ask[NodeBookmarkReply] { ref: ActorRef[NodeBookmarkReply] =>
                   BookmarkNodeCommand(req.nodeId, req.userId, ref)
+                }
+              )
+            }
+          } ~
+          delete {
+            entity(as[RemoveNodeBookmarkReq]) { req: RemoveNodeBookmarkReq =>
+              complete(
+                userCordinator.ask[UserReply] { ref: ActorRef[UserReply] =>
+                  ShardingEnvelope(req.userId, RemoveNodeBookmarkRequest(req.userId, req.nodeId, ref))
                 }
               )
             }
