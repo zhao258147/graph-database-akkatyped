@@ -11,7 +11,6 @@ import akka.cluster.typed.{ClusterSingleton, SingletonActor}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Route
 import akka.actor.typed.scaladsl.AskPattern._
-
 import akka.management.cluster.bootstrap.ClusterBootstrap
 import akka.management.scaladsl.AkkaManagement
 import akka.persistence.typed.PersistenceId
@@ -19,10 +18,12 @@ import akka.stream.ActorMaterializer
 import com.datastax.driver.core.{Cluster, Session}
 import com.example.graph.GraphNodeEntity
 import com.example.graph.GraphNodeEntity.{GraphNodeCommand, GraphNodeCommandReply, NodeId}
+import com.example.graph.readside.ClickReadSideActor.TrendingNodesCommand
 import com.example.graph.readside.{ClickReadSideActor, NodeReadSideActor, OffsetManagement}
 import com.example.saga.HomePageRecommendationActor.{HomePageRecommendation, HomePageRecommendationReply}
 import com.example.saga.NodeBookmarkActor.{BookmarkNode, NodeBookmarkReply}
 import com.example.saga.NodeRecommendationActor.{NodeRecommendationReply, NodeReferral}
+import com.example.saga.NodeTrendingActor.{GetTrendingNodes, NodeTrendingReply}
 import com.example.saga.UserBookmarkActor.{BookmarkUser, UserBookmarkReply}
 import com.example.saga.config.SagaConfig
 import com.example.saga.http.{CORSHandler, RequestApi}
@@ -108,6 +109,7 @@ object Main extends App {
   case class HomePageRecoCommand(userId: UserId, userLabels: Map[String, Int], replyTo: ActorRef[HomePageRecommendationReply]) extends SagaCommand
   case class BookmarkUserCommand(userId: UserId, targetUserId: UserId, replyTo: ActorRef[UserBookmarkReply]) extends SagaCommand
   case class BookmarkNodeCommand(nodeId: NodeId, userId: UserId, replyTo: ActorRef[NodeBookmarkReply]) extends SagaCommand
+  case class TrendingNodesCommand(replyTo: ActorRef[NodeTrendingReply]) extends SagaCommand
 
 //  case class RemoveBookmarkUserCommand(userId: UserId, targetNodeId: UserId, replyTo: ActorRef[UserBookmarkReply]) extends SagaCommand
 //  case class RemoveBookmarkNodeCommand(nodeId: NodeId, userId: UserId, replyTo: ActorRef[NodeBookmarkReply]) extends SagaCommand
@@ -137,6 +139,10 @@ object Main extends App {
         sagaActor ! BookmarkNode(bookmarkNode.nodeId, bookmarkNode.userId, bookmarkNode.replyTo)
         Behaviors.same
 
+      case TrendingNodesCommand(replyTo) =>
+        val trendingActor = context.spawn(NodeTrendingActor(clickReadSideActor, sagaNodeReadSideActor), UUID.randomUUID().toString)
+        trendingActor ! GetTrendingNodes(replyTo)
+        Behaviors.same
     }
   }
 

@@ -8,10 +8,11 @@ import akka.util.Timeout
 import com.datastax.driver.core.Session
 import com.example.graph.GraphNodeEntity.{GraphNodeCommand, GraphNodeCommandReply, To, UpdateEdgeCommand}
 import com.example.saga.HomePageRecommendationActor.HomePageRecommendationReply
-import com.example.saga.Main.{BookmarkNodeCommand, BookmarkUserCommand, HomePageRecoCommand, NodeRecoCommand, SagaCommand}
+import com.example.saga.Main.{BookmarkNodeCommand, BookmarkUserCommand, HomePageRecoCommand, NodeRecoCommand, SagaCommand, TrendingNodesCommand}
 import com.example.saga.{NodeBookmarkActor, NodeRecommendationActor}
 import com.example.saga.NodeBookmarkActor.NodeBookmarkReply
 import com.example.saga.NodeRecommendationActor.NodeRecommendationReply
+import com.example.saga.NodeTrendingActor.NodeTrendingReply
 import com.example.saga.UserBookmarkActor.UserBookmarkReply
 import com.example.saga.http.Requests._
 import com.example.user.UserNodeEntity
@@ -74,6 +75,15 @@ object RequestApi extends Json4sSupport {
               }
             )
           }
+        }
+      } ~
+      pathPrefix("trending") {
+        get {
+          complete(
+            system.ask[NodeTrendingReply] { ref =>
+              TrendingNodesCommand(ref)
+            }
+          )
         }
       } ~
       pathPrefix("bookmark") {
