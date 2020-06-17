@@ -7,8 +7,10 @@ import akka.http.scaladsl.server.Route
 import akka.util.Timeout
 import com.datastax.driver.core.Session
 import com.example.graph.GraphNodeEntity.{GraphNodeCommand, GraphNodeCommandReply, To, UpdateEdgeCommand}
+import com.example.saga.GetUserBookmarkedByActor.GetUserBookmarkedByReply
+import com.example.saga.GetUserBookmarksActor.GetUserBookmarksReply
 import com.example.saga.HomePageRecommendationActor.HomePageRecommendationReply
-import com.example.saga.Main.{BookmarkNodeCommand, BookmarkUserCommand, HomePageRecoCommand, NodeRecoCommand, SagaCommand, TrendingNodesCommand}
+import com.example.saga.Main.{BookmarkNodeCmd, BookmarkUserCmd, GetUserBookmarkedByCmd, GetUserBookmarksCmd, HomePageRecoCmd, NodeRecoCmd, QueryCommand, TrendingNodesCmd}
 import com.example.saga.{NodeBookmarkActor, NodeRecommendationActor}
 import com.example.saga.NodeBookmarkActor.NodeBookmarkReply
 import com.example.saga.NodeRecommendationActor.NodeRecommendationReply
@@ -31,14 +33,14 @@ object RequestApi extends Json4sSupport {
   def route(
     graphCordinator: ActorRef[ShardingEnvelope[GraphNodeCommand[GraphNodeCommandReply]]],
     userCordinator: ActorRef[ShardingEnvelope[UserCommand[UserReply]]]
-  )(implicit system: ActorSystem[SagaCommand], ec: ExecutionContext, session: Session): Route = {
+  )(implicit system: ActorSystem[QueryCommand], ec: ExecutionContext, session: Session): Route = {
     pathPrefix("api") {
       pathPrefix("home") {
         post {
           entity(as[HomePageVisitReq]) { referralReq: HomePageVisitReq =>
             complete(
               system.ask[HomePageRecommendationReply] { ref =>
-                HomePageRecoCommand(referralReq.userId, referralReq.userLabels, ref)
+                HomePageRecoCmd(referralReq.userId, referralReq.userLabels, ref)
               }
             )
           }
@@ -49,7 +51,7 @@ object RequestApi extends Json4sSupport {
           entity(as[NodeReferralReq]) { referralReq: NodeReferralReq =>
             complete(
               system.ask[NodeRecommendationReply] { ref =>
-                NodeRecoCommand(referralReq.nodeId, referralReq.userId, referralReq.userLabels, UserNodeEntity.NodeReferralBias(), ref)
+                NodeRecoCmd(referralReq.nodeId, referralReq.userId, referralReq.userLabels, UserNodeEntity.NodeReferralBias(), ref)
               }
             )
           }
@@ -60,7 +62,7 @@ object RequestApi extends Json4sSupport {
           entity(as[NodeReferralReq]) { referralReq: NodeReferralReq =>
             complete(
               system.ask[NodeRecommendationReply] { ref =>
-                NodeRecoCommand(referralReq.nodeId, referralReq.userId, referralReq.userLabels, UserNodeEntity.NodeSearchBias(), ref)
+                NodeRecoCmd(referralReq.nodeId, referralReq.userId, referralReq.userLabels, UserNodeEntity.NodeSearchBias(), ref)
               }
             )
           }
@@ -81,35 +83,55 @@ object RequestApi extends Json4sSupport {
         get {
           complete(
             system.ask[NodeTrendingReply] { ref =>
-              TrendingNodesCommand(ref)
+              TrendingNodesCmd(ref)
             }
           )
         }
       } ~
+      pathPrefix("bookmarkedBy") {
+        pathPrefix(Segment) { userId =>
+          get {
+            complete(
+              system.ask[GetUserBookmarkedByReply] { ref: ActorRef[GetUserBookmarkedByReply] =>
+                GetUserBookmarkedByCmd(userId, ref)
+              }
+            )
+          }
+        }
+      } ~
       pathPrefix("bookmark") {
         pathPrefix("user") {
+          pathPrefix(Segment) { userId =>
+            get {
+              complete(
+                system.ask[GetUserBookmarksReply] { ref: ActorRef[GetUserBookmarksReply] =>
+                  GetUserBookmarksCmd(userId, ref)
+                }
+              )
+            } ~
+            delete {
+              entity(as[RemoveUserBookmarkReq]) { req: RemoveUserBookmarkReq =>
+                val removeBookmarkReq: Future[UserReply] = for {
+                  removeBookmark <- userCordinator.ask[UserReply] { ref: ActorRef[UserReply] =>
+                    ShardingEnvelope(req.userId, RemoveUserBookmarkRequest(req.userId, req.targetUserId, ref))
+                  }
+                  _ <- userCordinator.ask[UserReply] { ref: ActorRef[UserReply] =>
+                    ShardingEnvelope(req.targetUserId, RemoveBookmarkedByRequest(req.targetUserId, req.userId, ref))
+                  }
+                } yield {
+                  removeBookmark
+                }
+                complete(removeBookmarkReq)
+              }
+            }
+          } ~
           post {
             entity(as[UserBookmarkReq]) { req =>
               complete(
                 system.ask[UserBookmarkReply] { ref: ActorRef[UserBookmarkReply] =>
-                  BookmarkUserCommand(req.userId, req.targetUserId, ref)
+                  BookmarkUserCmd(req.userId, req.targetUserId, ref)
                 }
               )
-            }
-          } ~
-          delete {
-            entity(as[RemoveUserBookmarkReq]) { req: RemoveUserBookmarkReq =>
-              val removeBookmarkReq: Future[UserReply] = for {
-                removeBookmark <- userCordinator.ask[UserReply] { ref: ActorRef[UserReply] =>
-                  ShardingEnvelope(req.userId, RemoveUserBookmarkRequest(req.userId, req.targetUserId, ref))
-                }
-                _ <- userCordinator.ask[UserReply] { ref: ActorRef[UserReply] =>
-                  ShardingEnvelope(req.targetUserId, RemoveBookmarkedByRequest(req.targetUserId, req.userId, ref))
-                }
-              } yield {
-                removeBookmark
-              }
-              complete(removeBookmarkReq)
             }
           }
         } ~
@@ -118,7 +140,7 @@ object RequestApi extends Json4sSupport {
             entity(as[NodeBookmarkReq]) { req =>
               complete(
                 system.ask[NodeBookmarkReply] { ref: ActorRef[NodeBookmarkReply] =>
-                  BookmarkNodeCommand(req.nodeId, req.userId, ref)
+                  BookmarkNodeCmd(req.nodeId, req.userId, ref)
                 }
               )
             }
