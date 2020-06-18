@@ -64,6 +64,7 @@ object UserNodeEntity {
   case class BookmarkedByRequest(userId: UserId, bookmarkUser: String, replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
   case class RemoveBookmarkedByRequest(userId: UserId, bookmarkUser: String, replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
 
+  case class SetAutoReplyCommand(userId: UserId, autoReply: Boolean, replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
   case class UserRetrievalCommand(userId: UserId, replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
   case class NeighbouringViewsRequest(userId: UserId, replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
   case class UserEntityParamsUpdate(userId: UserId, numberOfSimilarUsers: Option[Int], numberOfViewsToCheck: Option[Int], labelWeightFilter: Option[Int], nodeBookmarkBias: Option[Int], userBookmarkBias: Option[Int], nodeVisitBias: Option[Int], replyTo: ActorRef[UserReply]) extends UserCommand[UserReply]
@@ -89,7 +90,7 @@ object UserNodeEntity {
   case class NodeVisitRequestSuccess(userId: UserId, updatedLabels: Map[String, Int], neighbours: Set[UserId], recentViews: Seq[String]) extends UserReply
   case class UserHistoryResponse(userId: UserId, neighbours: Set[UserId], viewed: Seq[String]) extends UserReply
   case class UserCommandFailed(userId: UserId, error: String) extends UserReply
-  case class UserInfo(userId: UserId, userType: String, properties: Map[String, String], labels: Map[String, Int], viewed: Seq[String], bookmarkedNodes: Set[String], bookmarkedUsers: Set[String], bookmarkedBy: Set[String], similarUsers: Map[String, Int]) extends UserReply
+  case class UserInfo(userId: UserId, userType: String, properties: Map[String, String], labels: Map[String, Int], viewed: Seq[String], bookmarkedNodes: Set[String], bookmarkedUsers: Set[String], bookmarkedBy: Set[String], similarUsers: Map[String, Int], autoReply: Boolean) extends UserReply
   case class BookmarkedBySuccess(userId: UserId, labels: Map[String, Int]) extends UserReply
   case class UserBookmarkSuccess(userId: UserId, labels: Map[String, Int]) extends UserReply
   case class NodeBookmarkSuccess(userId: UserId, nodeId: String, labels: Map[String, Int]) extends UserReply
@@ -122,6 +123,7 @@ object UserNodeEntity {
   case class RemoveUserBookmarked(userId: UserId, targetUserId: String, ts: Long = System.currentTimeMillis()) extends UserEvent
   case class RemoveBookmarkedBy(userId: UserId, bookmarkUser: String, ts: Long = System.currentTimeMillis()) extends UserEvent
 
+  case class UserAutoReplyUpdate(userId: UserId, autoReply: Boolean, ts: Long = System.currentTimeMillis()) extends UserEvent
   case class UserRequest(nodeId: String, tags: Map[String, Int], similarUsers: Map[String, Map[String, Int]], bias: NodeVisitBias = NodeReferralBias(), ts: Long = System.currentTimeMillis()) extends UserEvent
   case class ParamsUpdate(userId: UserId, numberOfSimilarUsers: Option[Int], numberOfViewsToCheck: Option[Int], labelWeightFilter: Option[Int], nodeBookmarkBias: Option[Int], userBookmarkBias: Option[Int], nodeVisitBias: Option[Int], ts: Long = System.currentTimeMillis()) extends UserEvent
 
@@ -144,6 +146,7 @@ object UserNodeEntity {
     bookmarkedBy: Map[String, BookmarkedBy],
     similarUsers: Map[String, Map[String, Int]],
     viewed: Seq[String],
+    autoReply: Boolean = true,
     numberOfSimilarUsersOpt: Option[Int] = None,
     numberOfViewsToCheckOpt: Option[Int] = None,
     labelWeightFilterOpt: Option[Int] = None,
@@ -285,7 +288,10 @@ object UserNodeEntity {
                   }
               }.filter(_._2 > params.labelWeightFilter)
 //              println(state.similarUsers)
-              Effect.reply(retrieve.replyTo)(UserInfo(state.userId, state.userType, state.properties, state.labels, state.viewed, state.bookmarkedNodes.keySet, state.bookmarkedUsers.keySet, state.bookmarkedBy.keySet, similarUser))
+              Effect.reply(retrieve.replyTo)(UserInfo(state.userId, state.userType, state.properties, state.labels, state.viewed, state.bookmarkedNodes.keySet, state.bookmarkedUsers.keySet, state.bookmarkedBy.keySet, similarUser, state.autoReply))
+
+            case SetAutoReplyCommand(userId, autoReply, replyTo) =>
+              Effect.persist(UserAutoReplyUpdate(userId, autoReply)).thenReply(replyTo)(_ => UserCommandSuccess(userId, state.labels))
 
             case NeighbouringViewsRequest(userId, replyTo) =>
               Effect.reply(replyTo)(NeighbouringViews(userId, state.userType, state.properties, state.labels, state.viewed.take(10)))
@@ -385,6 +391,9 @@ object UserNodeEntity {
 
             case remove: RemoveBookmarkedBy =>
               created.copy(bookmarkedBy = created.bookmarkedBy - remove.bookmarkUser)
+
+            case autoReply: UserAutoReplyUpdate =>
+              created.copy(autoReply = autoReply.autoReply)
 
             case req: UserRequest =>
               val updatedViews = req.nodeId +: created.viewed

@@ -76,12 +76,18 @@ object GetUserBookmarkedByActor {
         case WrappedUserEntityResponse(wrapperUserReply: UserInfo) =>
           val updatedReceivedUserInfo = receivedUserInfo + wrapperUserReply
           if(userInfo.bookmarkedBy.size == updatedReceivedUserInfo.size) {
-            bookmark.replyTo ! GetUserBookmarkedBySuccess(bookmark.userId, updatedReceivedUserInfo.map(x => x.userId -> x.properties).toMap)
+            bookmark.replyTo ! GetUserBookmarkedBySuccess(
+              bookmark.userId, 
+              updatedReceivedUserInfo.flatMap{x => 
+                if(x.autoReplay) Some(x.userId -> x.properties)
+                else None 
+              }.toMap
+            )
 
             Behaviors.stopped
-          } else
-          waitingForBookmarkUsersResponse(bookmark, userInfo, updatedReceivedUserInfo)
-
+          } else {
+            waitingForBookmarkUsersResponse(bookmark, userInfo, updatedReceivedUserInfo)  
+          }
         case x =>
           bookmark.replyTo ! GetUserBookmarkedByFailed("Could not get bookmarked users")
           Behaviors.stopped

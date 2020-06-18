@@ -1,0 +1,7 @@
+.idea/*
+.bloop/*
+.metals/*
+*/target/*
+*null*
+target/*
+project/project/target/*
