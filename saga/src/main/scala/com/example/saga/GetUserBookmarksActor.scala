@@ -85,9 +85,8 @@ object GetUserBookmarksActor {
           if(waitingForUsers.size == updatedReceivedUserInfo.size) {
             bookmark.replyTo ! GetUserBookmarksSuccess(
               bookmark.userId,
-              updatedReceivedUserInfo.flatMap{ x: UserInfo =>
-                if(x.autoReply) Some(x.userId -> x.properties)
-                else None
+              updatedReceivedUserInfo.map{ x: UserInfo =>
+                x.userId -> x.properties
               }.toMap
             )
 
