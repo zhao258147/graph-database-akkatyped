@@ -290,11 +290,8 @@ object UserNodeEntity {
                   }
               }.filter(_._2 > params.labelWeightFilter)
 //              println(state.similarUsers)
-              val bookmarkedUsers = state.bookmarkedUsers.filter{
-                case (key, value: UserBookmarked) =>
-                  value.autoReply
-              }
-              Effect.reply(retrieve.replyTo)(UserInfo(state.userId, state.userType, state.properties, state.labels, state.viewed, state.bookmarkedNodes.keySet, bookmarkedUsers.keySet, state.bookmarkedBy.keySet, similarUser, state.autoReply))
+          
+              Effect.reply(retrieve.replyTo)(UserInfo(state.userId, state.userType, state.properties, state.labels, state.viewed, state.bookmarkedNodes.keySet, state.bookmarkedUsers.keySet, state.bookmarkedBy.keySet, similarUser, state.autoReply))
 
             case SetAutoReplyCommand(userId, autoReply, replyTo) =>
               Effect.persist(UserAutoReplyUpdate(userId, autoReply)).thenReply(replyTo)(_ => UserCommandSuccess(userId, state.labels))

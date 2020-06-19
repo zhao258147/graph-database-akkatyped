@@ -6,32 +6,32 @@ import akka.cluster.sharding.typed.ShardingEnvelope
 import com.example.user.UserNodeEntity._
 import scala.concurrent.duration._
 
-object GetUserBookmarksActor {
-  sealed trait GetUserBookmarksCommand
-  case object CommandTimeout extends GetUserBookmarksCommand
-  case class GetBookmarksWithUserInfo(userId: UserId, replyTo: ActorRef[GetUserBookmarksReply]) extends GetUserBookmarksCommand
-  case class WrappedUserEntityResponse(userEntityResponse: UserReply) extends GetUserBookmarksCommand
+object GetAllUserBookmarksActor {
+  sealed trait GetAllUserBookmarksCommand
+  case object CommandTimeout extends GetAllUserBookmarksCommand
+  case class GetAllBookmarksWithUserInfo(userId: UserId, replyTo: ActorRef[GetAllUserBookmarksReply]) extends GetAllUserBookmarksCommand
+  case class WrappedUserEntityResponse(userEntityResponse: UserReply) extends GetAllUserBookmarksCommand
 
-  sealed trait GetUserBookmarksReply
-  case class GetUserBookmarksSuccess(userId: String, bookmarkedUsers: Map[String, Map[String, String]]) extends GetUserBookmarksReply
-  case class GetUserBookmarksFailed(message: String) extends GetUserBookmarksReply
+  sealed trait GetAllUserBookmarksReply
+  case class GetUserBookmarksSuccess(userId: String, bookmarkedUsers: Map[String, Map[String, String]]) extends GetAllUserBookmarksReply
+  case class GetUserBookmarksFailed(message: String) extends GetAllUserBookmarksReply
 
   def apply(
     userShardRegion: ActorRef[ShardingEnvelope[UserCommand[UserReply]]]
-  ): Behavior[GetUserBookmarksCommand] =
+  ): Behavior[GetAllUserBookmarksCommand] =
     Behaviors.withTimers(timers => getBookmarksInfoBehaviour(userShardRegion, timers))
 
   def getBookmarksInfoBehaviour(
     userShardRegion: ActorRef[ShardingEnvelope[UserCommand[UserReply]]],
-    timer: TimerScheduler[GetUserBookmarksCommand]
-  ): Behavior[GetUserBookmarksCommand] =
+    timer: TimerScheduler[GetAllUserBookmarksCommand]
+  ): Behavior[GetAllUserBookmarksCommand] =
     Behaviors.setup { cxt =>
       val userEntityResponseMapper: ActorRef[UserReply] =
         cxt.messageAdapter(rsp => WrappedUserEntityResponse(rsp))
 
-      def initial(): Behavior[GetUserBookmarksCommand] =
+      def initial(): Behavior[GetAllUserBookmarksCommand] =
         Behaviors.receiveMessage {
-          case bookmark: GetBookmarksWithUserInfo =>
+          case bookmark: GetAllBookmarksWithUserInfo =>
             timer.startSingleTimer(CommandTimeout, 4 seconds)
 
             userShardRegion ! ShardingEnvelope(
@@ -47,10 +47,10 @@ object GetUserBookmarksActor {
             Behaviors.stopped
         }
 
-    def waitingForUserReply(bookmark: GetBookmarksWithUserInfo): Behavior[GetUserBookmarksCommand] =
+    def waitingForUserReply(bookmark: GetAllBookmarksWithUserInfo): Behavior[GetAllUserBookmarksCommand] =
       Behaviors.receiveMessage {
         case WrappedUserEntityResponse(wrapperUserReply: UserInfo) =>
-          val waitingForUsers = wrapperUserReply.bookmarkedUsers
+          val waitingForUsers = wrapperUserReply.bookmarkedUsers ++ wrapperUserReply.bookmarkedBy
 
           if(waitingForUsers.isEmpty){
             bookmark.replyTo ! GetUserBookmarksSuccess(bookmark.userId, Map.empty)
@@ -65,7 +65,7 @@ object GetUserBookmarksActor {
                 )
               )
             }
-            waitingForBookmarkUsersResponse(bookmark, waitingForUsers, Set.empty)
+            waitingForBookmarkUsersResponse(bookmark, wrapperUserReply.bookmarkedUsers, wrapperUserReply.bookmarkedBy, Set.empty)
           }
 
 
@@ -78,21 +78,29 @@ object GetUserBookmarksActor {
           Behaviors.stopped
       }
 
-    def waitingForBookmarkUsersResponse(bookmark: GetBookmarksWithUserInfo, waitingForUsers: Set[String], receivedUserInfo: Set[UserInfo]): Behavior[GetUserBookmarksCommand] =
+    def waitingForBookmarkUsersResponse(bookmark: GetAllBookmarksWithUserInfo, bookmarkedUsers: Set[String], bookmarkedBy: Set[String], receivedUserInfo: Set[UserInfo]): Behavior[GetAllUserBookmarksCommand] =
       Behaviors.receiveMessage {
         case WrappedUserEntityResponse(wrapperUserReply: UserInfo) =>
           val updatedReceivedUserInfo = receivedUserInfo + wrapperUserReply
-          if(waitingForUsers.size == updatedReceivedUserInfo.size) {
+          val updatedUserIds = updatedReceivedUserInfo.map(_.userId)
+
+          if(bookmarkedUsers.subsetOf(updatedUserIds) && bookmarkedBy.subsetOf(updatedUserIds)) {
             bookmark.replyTo ! GetUserBookmarksSuccess(
               bookmark.userId,
-              updatedReceivedUserInfo.map{ x: UserInfo =>
-                x.userId -> x.properties
+              updatedReceivedUserInfo.flatMap{ x: UserInfo =>
+                if(bookmarkedBy.contains( x.userId)) {
+                  Some(x.userId -> x.properties)
+                } else {
+                  if(x.autoReply) Some(x.userId -> x.properties)
+                  else None
+                }
+               
               }.toMap
             )
 
             Behaviors.stopped
           } else
-            waitingForBookmarkUsersResponse(bookmark, waitingForUsers, updatedReceivedUserInfo)
+            waitingForBookmarkUsersResponse(bookmark, bookmarkedUsers, bookmarkedBy, updatedReceivedUserInfo)
 
         case x =>
           bookmark.replyTo ! GetUserBookmarksFailed("Could not get bookmarked users")

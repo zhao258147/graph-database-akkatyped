@@ -21,6 +21,8 @@ import com.example.graph.GraphNodeEntity.{GraphNodeCommand, GraphNodeCommandRepl
 import com.example.graph.readside.ClickReadSideActor.TrendingNodesCommand
 import com.example.graph.readside.{ClickReadSideActor, NodeReadSideActor, OffsetManagement}
 import com.example.saga.GetUserBookmarkedByActor.{GetBookmarkedByWithUserInfo, GetUserBookmarkedByReply}
+
+import com.example.saga.GetAllUserBookmarksActor._
 import com.example.saga.GetUserBookmarksActor.{GetBookmarksWithUserInfo, GetUserBookmarksReply}
 import com.example.saga.HomePageRecommendationActor.{HomePageRecommendation, HomePageRecommendationReply}
 import com.example.saga.NodeBookmarkActor.{BookmarkNode, NodeBookmarkReply}
@@ -112,6 +114,7 @@ object Main extends App {
   case class TrendingNodesCmd(replyTo: ActorRef[NodeTrendingReply]) extends QueryCommand
   case class GetUserBookmarksCmd(userId: String, replyTo: ActorRef[GetUserBookmarksReply]) extends QueryCommand
   case class GetUserBookmarkedByCmd(userId: String, replyTo: ActorRef[GetUserBookmarkedByReply]) extends QueryCommand
+  case class GetAllUserBookmarksCmd(userId: String, replyTo: ActorRef[GetAllUserBookmarksReply]) extends QueryCommand
 
 //  case class RemoveBookmarkUserCommand(userId: UserId, targetNodeId: UserId, replyTo: ActorRef[UserBookmarkReply]) extends SagaCommand
 //  case class RemoveBookmarkNodeCommand(nodeId: NodeId, userId: UserId, replyTo: ActorRef[NodeBookmarkReply]) extends SagaCommand
@@ -154,6 +157,11 @@ object Main extends App {
       case GetUserBookmarkedByCmd(userId, replyTo) =>
         val getBookmarkedByActor = context.spawn(GetUserBookmarkedByActor(userShardRegion), UUID.randomUUID().toString)
         getBookmarkedByActor ! GetBookmarkedByWithUserInfo(userId, replyTo)
+        Behaviors.same
+
+      case GetAllUserBookmarksCmd(userId, replyTo) =>
+        val getAllBookmarksActor = context.spawn(GetAllUserBookmarksActor(userShardRegion), UUID.randomUUID().toString)
+        getAllBookmarksActor ! GetAllBookmarksWithUserInfo(userId, replyTo)
         Behaviors.same
     }
   }

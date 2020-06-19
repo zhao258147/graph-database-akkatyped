@@ -24,6 +24,8 @@ import org.json4s.{DefaultFormats, Formats, native}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
+import com.example.saga.GetAllUserBookmarksActor.GetAllUserBookmarksReply
+import com.example.saga.Main.GetAllUserBookmarksCmd
 
 object RequestApi extends Json4sSupport {
   implicit val timeout: Timeout = 40.seconds
@@ -94,6 +96,17 @@ object RequestApi extends Json4sSupport {
             complete(
               system.ask[GetUserBookmarkedByReply] { ref: ActorRef[GetUserBookmarkedByReply] =>
                 GetUserBookmarkedByCmd(userId, ref)
+              }
+            )
+          }
+        }
+      } ~
+      pathPrefix("bookmarked") {
+        pathPrefix(Segment) { userId =>
+          get {
+            complete(
+              system.ask[GetAllUserBookmarksReply] { ref: ActorRef[GetAllUserBookmarksReply] =>
+                GetAllUserBookmarksCmd(userId, ref)
               }
             )
           }

@@ -181,7 +181,12 @@ object GraphNodeEntity {
         case createdState: CreatedGraphNodeState =>
           command match {
             case create: CreateNodeCommand =>
-              Effect.reply(create.replyTo)(GraphNodeCommandFailed(create.nodeId, "Node exists"))
+              if(create.properties == createdState.properties) 
+                Effect.reply(create.replyTo)(GraphNodeCommandSuccess(create.nodeId, "Node exists"))  
+              else
+                Effect
+                  .persist(GraphNodeUpdated(createdState.nodeId, createdState.nodeType, createdState.companyId, create.tags, create.properties))
+                  .thenReply(create.replyTo)(_ => GraphNodeCommandSuccess(create.nodeId, "Node updated"))
 
             case update: UpdateNodeCommand =>
               Effect
