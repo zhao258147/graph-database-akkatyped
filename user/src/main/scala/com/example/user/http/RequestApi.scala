@@ -51,6 +51,34 @@ object RequestApi extends Json4sSupport {
       } ~
       pathPrefix("user") {
         pathPrefix(Segment) { userId =>
+          pathPrefix("bookmark") {
+            pathPrefix(Segment) { targetUserId =>
+              delete {
+                complete(
+                  userCordinator.ask[UserReply] { ref: ActorRef[UserReply] =>
+                    ShardingEnvelope(
+                      userId,
+                      RemoveBookmarkedByRequest(userId, targetUserId, ref)
+                    )
+                  }
+                )
+              }
+            }
+          } ~
+          pathPrefix("autoreply") {
+            post {
+              entity(as[UpdateAutoReplyReq]) { req =>
+                complete(
+                  userCordinator.ask[UserReply] { ref: ActorRef[UserReply] =>
+                    ShardingEnvelope(
+                      userId,
+                      SetAutoReplyCommand(userId, req.autoReply, ref)
+                    )
+                  }
+                )
+              }
+            }
+          } ~
           get {
             complete(
               userCordinator.ask[UserReply] { ref: ActorRef[UserReply] =>

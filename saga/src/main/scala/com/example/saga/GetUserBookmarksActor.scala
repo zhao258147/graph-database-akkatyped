@@ -50,16 +50,24 @@ object GetUserBookmarksActor {
     def waitingForUserReply(bookmark: GetBookmarksWithUserInfo): Behavior[GetUserBookmarksCommand] =
       Behaviors.receiveMessage {
         case WrappedUserEntityResponse(wrapperUserReply: UserInfo) =>
-          wrapperUserReply.bookmarkedUsers.foreach{ bookmarkedUserId =>
-            userShardRegion ! ShardingEnvelope(
-              bookmarkedUserId,
-              UserRetrievalCommand(
-                userId = bookmarkedUserId,
-                replyTo = userEntityResponseMapper
+          val waitingForUsers = wrapperUserReply.bookmarkedBy ++ wrapperUserReply.bookmarkedUsers
+
+          if(waitingForUsers.isEmpty){
+            bookmark.replyTo ! GetUserBookmarksSuccess(bookmark.userId, Map.empty)
+            Behaviors.stopped
+          } else {
+            waitingForUsers.foreach{ bookmarkedUserId =>
+              userShardRegion ! ShardingEnvelope(
+                bookmarkedUserId,
+                UserRetrievalCommand(
+                  userId = bookmarkedUserId,
+                  replyTo = userEntityResponseMapper
+                )
               )
-            )
+            }
+            waitingForBookmarkUsersResponse(bookmark, waitingForUsers, Set.empty)
           }
-          waitingForBookmarkUsersResponse(bookmark, wrapperUserReply, Set.empty)
+
 
         case WrappedUserEntityResponse(wrapperUserReply: UserCommandFailed) =>
           bookmark.replyTo ! GetUserBookmarksFailed(wrapperUserReply.error)
@@ -70,16 +78,22 @@ object GetUserBookmarksActor {
           Behaviors.stopped
       }
 
-    def waitingForBookmarkUsersResponse(bookmark: GetBookmarksWithUserInfo, userInfo: UserInfo, receivedUserInfo: Set[UserInfo]): Behavior[GetUserBookmarksCommand] =
+    def waitingForBookmarkUsersResponse(bookmark: GetBookmarksWithUserInfo, waitingForUsers: Set[String], receivedUserInfo: Set[UserInfo]): Behavior[GetUserBookmarksCommand] =
       Behaviors.receiveMessage {
         case WrappedUserEntityResponse(wrapperUserReply: UserInfo) =>
           val updatedReceivedUserInfo = receivedUserInfo + wrapperUserReply
-          if(userInfo.bookmarkedUsers.size == updatedReceivedUserInfo.size) {
-            bookmark.replyTo ! GetUserBookmarksSuccess(bookmark.userId, updatedReceivedUserInfo.map(x => x.userId -> x.properties).toMap)
+          if(waitingForUsers.size == updatedReceivedUserInfo.size) {
+            bookmark.replyTo ! GetUserBookmarksSuccess(
+              bookmark.userId,
+              updatedReceivedUserInfo.flatMap{ x: UserInfo =>
+                if(x.autoReply) Some(x.userId -> x.properties)
+                else None
+              }.toMap
+            )
 
             Behaviors.stopped
           } else
-            waitingForBookmarkUsersResponse(bookmark, userInfo, updatedReceivedUserInfo)
+            waitingForBookmarkUsersResponse(bookmark, waitingForUsers, updatedReceivedUserInfo)
 
         case x =>
           bookmark.replyTo ! GetUserBookmarksFailed("Could not get bookmarked users")

@@ -51,16 +51,21 @@ object GetUserBookmarkedByActor {
     def waitingForUserReply(bookmark: GetBookmarkedByWithUserInfo): Behavior[GetUserBookmarkedByCommand] =
       Behaviors.receiveMessage {
         case WrappedUserEntityResponse(wrapperUserReply: UserInfo) =>
-          wrapperUserReply.bookmarkedBy.foreach{ bookmarkedByUserId =>
-            userShardRegion ! ShardingEnvelope(
-              bookmarkedByUserId,
-              UserRetrievalCommand(
-                userId = bookmarkedByUserId,
-                replyTo = userEntityResponseMapper
+          if(wrapperUserReply.bookmarkedBy.isEmpty){
+            bookmark.replyTo ! GetUserBookmarkedBySuccess(bookmark.userId, Map.empty)
+            Behaviors.stopped
+          } else {
+            wrapperUserReply.bookmarkedBy.foreach { bookmarkedByUserId =>
+              userShardRegion ! ShardingEnvelope(
+                bookmarkedByUserId,
+                UserRetrievalCommand(
+                  userId = bookmarkedByUserId,
+                  replyTo = userEntityResponseMapper
+                )
               )
-            )
+            }
+            waitingForBookmarkUsersResponse(bookmark, wrapperUserReply, Set.empty)
           }
-          waitingForBookmarkUsersResponse(bookmark, wrapperUserReply, Set.empty)
 
         case WrappedUserEntityResponse(wrapperUserReply: UserCommandFailed) =>
           bookmark.replyTo ! GetUserBookmarkedByFailed(wrapperUserReply.error)
@@ -74,12 +79,12 @@ object GetUserBookmarkedByActor {
     def waitingForBookmarkUsersResponse(bookmark: GetBookmarkedByWithUserInfo, userInfo: UserInfo, receivedUserInfo: Set[UserInfo]): Behavior[GetUserBookmarkedByCommand] =
       Behaviors.receiveMessage {
         case WrappedUserEntityResponse(wrapperUserReply: UserInfo) =>
-          val updatedReceivedUserInfo = receivedUserInfo + wrapperUserReply
+          val updatedReceivedUserInfo: Set[UserInfo] = receivedUserInfo + wrapperUserReply
           if(userInfo.bookmarkedBy.size == updatedReceivedUserInfo.size) {
             bookmark.replyTo ! GetUserBookmarkedBySuccess(
               bookmark.userId, 
-              updatedReceivedUserInfo.flatMap{x => 
-                if(x.autoReplay) Some(x.userId -> x.properties)
+              updatedReceivedUserInfo.flatMap{ x: UserInfo =>
+                if(x.autoReply) Some(x.userId -> x.properties)
                 else None 
               }.toMap
             )

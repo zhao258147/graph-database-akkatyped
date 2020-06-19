@@ -51,6 +51,7 @@ object UserBookmarkActor {
               userId = bookmark.userId,
               targetUserId = bookmark.targetUserId,
               labels = wrapperUserReply.labels,
+              autoReply = wrapperUserReply.autoReply,
               replyTo = userEntityResponseMapper
             )
           )
