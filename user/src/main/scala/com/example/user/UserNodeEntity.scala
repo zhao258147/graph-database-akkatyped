@@ -205,7 +205,7 @@ object UserNodeEntity {
 
             case update: UpdateUserCommand =>
               Effect
-                .persist(UserUpdated(update.userId, state.userType, update.properties, update.labels))
+                .persist(UserUpdated(update.userId, state.userType, state.properties ++ update.properties, update.labels))
                 .thenReply(update.replyTo)(_ => UserCommandSuccess(update.userId, state.labels))
 
             case update: UserEntityParamsUpdate =>
@@ -289,7 +289,6 @@ object UserNodeEntity {
                       acc + Math.min(labels.getOrElse(label, 0), labelWeight)
                   }
               }.filter(_._2 > params.labelWeightFilter)
-//              println(state.similarUsers)
           
               Effect.reply(retrieve.replyTo)(UserInfo(state.userId, state.userType, state.properties, state.labels, state.viewed, state.bookmarkedNodes.keySet, state.bookmarkedUsers.keySet, state.bookmarkedBy.keySet, similarUser, state.autoReply))
 
