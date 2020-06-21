@@ -55,21 +55,12 @@ object RequestApi extends Json4sSupport {
             pathPrefix(Segment) { targetUserId =>
               delete {
                 complete(
-                  for {
-                    _ <- userCordinator.ask[UserReply] { ref: ActorRef[UserReply] =>
-                      ShardingEnvelope(
-                        userId,
-                        RemoveBookmarkedByRequest(userId, targetUserId, ref)
-                      )
-                    }
-                    removebookmark <- userCordinator.ask[UserReply] { ref: ActorRef[UserReply] =>
-                      ShardingEnvelope(
-                        userId,
-                        RemoveUserBookmarkRequest(userId, targetUserId, ref)
-                      )
-                    }
-                  } yield removebookmark
-
+                userCordinator.ask[UserReply] { ref: ActorRef[UserReply] =>
+                    ShardingEnvelope(
+                      userId,
+                      RemoveBookmarkedByRequest(userId, targetUserId, ref)
+                    )
+                  }
                 )
               }
             }

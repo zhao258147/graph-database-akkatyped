@@ -257,9 +257,19 @@ object UserNodeEntity {
                 .thenReply(removeBookmark.replyTo)(_ => UserCommandSuccess(removeBookmark.userId, state.labels))
 
             case bookmark: UserBookmarkRequest =>
-              Effect
-                .persist(UserBookmarked(bookmark.userId, bookmark.targetUserId, bookmark.labels, bookmark.autoReply, System.currentTimeMillis()))
-                .thenReply(bookmark.replyTo){
+              val bookmarkEvt = UserBookmarked(bookmark.userId, bookmark.targetUserId, bookmark.labels, bookmark.autoReply, System.currentTimeMillis())
+              val bookmarkedByEvt = BookmarkedBy(bookmark.userId, bookmark.targetUserId)
+              if(bookmark.autoReply)
+                Effect
+                  .persist(bookmarkEvt, bookmarkedByEvt).thenReply(bookmark.replyTo){
+                    case updatedState: CreatedUserState =>
+                      UserBookmarkSuccess(bookmark.userId, updatedState.labels)
+                    case _ =>
+                      UserCommandFailed(bookmark.userId, UserStateErrorMessage)
+                  }
+              else
+                Effect
+                  .persist(bookmarkEvt).thenReply(bookmark.replyTo){
                   case updatedState: CreatedUserState =>
                     UserBookmarkSuccess(bookmark.userId, updatedState.labels)
                   case _ =>

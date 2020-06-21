@@ -105,8 +105,8 @@ object RequestApi extends Json4sSupport {
         pathPrefix(Segment) { userId =>
           get {
             complete(
-              system.ask[GetAllUserBookmarksReply] { ref: ActorRef[GetAllUserBookmarksReply] =>
-                GetAllUserBookmarksCmd(userId, ref)
+              system.ask[GetUserBookmarkedByReply] { ref: ActorRef[GetUserBookmarkedByReply] =>
+                GetUserBookmarkedByCmd(userId, ref)
               }
             )
           }
