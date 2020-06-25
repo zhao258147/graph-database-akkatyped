@@ -14,7 +14,9 @@ import com.example.graph.readside.NodeReadSideActor._
 import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
 
 import scala.collection.JavaConverters._
+import scala.collection.immutable
 import scala.concurrent.ExecutionContextExecutor
+import scala.util.Try
 
 object SagaTrendingNodesActor {
   @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
@@ -35,24 +37,57 @@ object SagaTrendingNodesActor {
       implicit val system: ActorSystem[Nothing] = context.system
       implicit val ec: ExecutionContextExecutor = system.executionContext
 
-      val ts = System.currentTimeMillis() - 1800000// - 180000000//- 200000
+      val ts = System.currentTimeMillis() - 18000000// - 180000000//- 200000
+      println(ts)
       val clicksStmt = new SimpleStatement(s"SELECT * FROM graph.clicks WHERE ts > $ts ALLOW FILTERING")
 
-      val clicksQuery = CassandraSource(clicksStmt)
-        .map { row =>
-          NodeClickInfo(
-            row.getString("company"),
-            row.getString("id"),
-            row.getMap("tags", classOf[String], classOf[java.lang.Integer]).asScala.toMap.keySet,
-            row.getLong("ts"),
-            row.getInt("clicks")
-          )
-        }
-        .runWith(Sink.seq)
+      Try {
+        val clicksQuery = CassandraSource(clicksStmt)
+          .map { row =>
+            NodeClickInfo(
+              row.getString("company"),
+              row.getString("id"),
+              row.getMap("tags", classOf[String], classOf[java.lang.Integer]).asScala.toMap.keySet,
+              row.getLong("ts"),
+              row.getInt("clicks")
+            )
+          }
+          .runWith(Sink.seq)
 
-      clicksQuery.foreach {
-        context.self ! OnStartNodeClickInfo(_)
+        clicksQuery
+          .map { x: immutable.Seq[NodeClickInfo] =>
+            println("yyyyyyyyyyy" * 10)
+            println(x)
+            context.self ! OnStartNodeClickInfo(x)
+          }
+          .recover {
+            case ex =>
+              println("ex" * 10)
+              println(ex)
+              context.self ! OnStartNodeClickInfo(Seq.empty)
+          }
+      }.recover{
+        case ex =>
+          println("eex" * 10)
+          println(ex)
+          context.self ! OnStartNodeClickInfo(Seq.empty)
       }
+
+      val offset = TimeBasedUUID(UUIDs.startOf(ts))
+      println("offset"*10)
+      println(offset)
+      val queries = PersistenceQuery(system).readJournalFor[CassandraReadJournal](CassandraReadJournal.Identifier)
+      val createdStream: Source[EventEnvelope, NotUsed] = queries.eventsByTag(NodeUpdateEventName, offset)
+      createdStream
+        .map {
+          case ee@EventEnvelope(_, _, _, value: GraphNodeClickUpdated) =>
+            context.self ! NodeClickInfo(value.companyId, value.nodeId, value.tags.keySet, value.ts, value.clicks)
+            NodeClickInfo(value.companyId, value.nodeId, value.tags.keySet, value.ts, value.clicks)
+          case ee =>
+            ee
+        }
+        .runWith(Sink.foreach(println))
+
 
       def calculateOverallList(list: Seq[NodeClickInfo]): Map[String, Int] = {
         val unsortedOverallList: Map[String, Int] = list.foldLeft(Map.empty[String, Int]){
@@ -69,18 +104,7 @@ object SagaTrendingNodesActor {
             context.log.debug(list.toString)
             println(s"$list")
 
-            val offset = TimeBasedUUID(UUIDs.timeBased())
-            val queries = PersistenceQuery(system).readJournalFor[CassandraReadJournal](CassandraReadJournal.Identifier)
-            val createdStream: Source[EventEnvelope, NotUsed] = queries.eventsByTag(NodeUpdateEventName, offset)
-            createdStream
-              .map {
-                case ee@EventEnvelope(_, _, _, value: GraphNodeClickUpdated) =>
-                  context.self ! NodeClickInfo(value.companyId, value.nodeId, value.tags.keySet, value.ts, value.clicks)
-                  ee
-                case ee =>
-                  ee
-              }
-              .runWith(Sink.ignore)
+
 
             collectNewNode(list, calculateOverallList(list))
 
