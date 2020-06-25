@@ -93,7 +93,7 @@ object HomePageRecommendationActor {
             .map{
               case (userResp, nodeResp, trendingResp, noNeighbours) =>
                 if(noNeighbours) {
-                  sagaNodeReadSideActor ! RetrieveNodesQuery(Map.empty, Map.empty, nodeResp.list -- userResp.viewed, trendingResp.overallRanking, Map.empty, Map.empty, sagaNodeActorResponseMapper)
+                  sagaNodeReadSideActor ! RetrieveNodesQuery(None, Map.empty, Map.empty, nodeResp.list -- userResp.viewed, trendingResp.overallRanking, Map.empty, Map.empty, sagaNodeActorResponseMapper)
                   waitingForFinalNeighbourViewsFilter(referral, Seq.empty)
                 } else waitingForNeighbourViewsReply(referral, nodeResp.list, trendingResp, userResp.neighbours, Map.empty, userResp.viewed, Seq.empty)
             }.getOrElse(waitingForRecommendationReply(referral, userHistoryResponse, nodeActorResponse, Some(wrappedTrendingReply)))
@@ -103,7 +103,7 @@ object HomePageRecommendationActor {
             .map{
               case (userResp, nodeResp, trendingResp, noNeighbours) =>
                 if(noNeighbours) {
-                  sagaNodeReadSideActor ! RetrieveNodesQuery(Map.empty, Map.empty, nodeResp.list -- userResp.viewed, trendingResp.overallRanking, Map.empty, Map.empty, sagaNodeActorResponseMapper)
+                  sagaNodeReadSideActor ! RetrieveNodesQuery(None, Map.empty, Map.empty, nodeResp.list -- userResp.viewed, trendingResp.overallRanking, Map.empty, Map.empty, sagaNodeActorResponseMapper)
                   waitingForFinalNeighbourViewsFilter(referral, Seq.empty)
                 } else waitingForNeighbourViewsReply(referral, nodeResp.list, trendingResp, userResp.neighbours, Map.empty, userResp.viewed, Seq.empty)
             }.getOrElse(waitingForRecommendationReply(referral, userHistoryResponse, Some(wrappedNodeReply), trendingNodesResponse))
@@ -113,7 +113,7 @@ object HomePageRecommendationActor {
             .map{
               case (userResp, nodeResp, trendingResp, noNeighbours) =>
                 if(noNeighbours) {
-                  sagaNodeReadSideActor ! RetrieveNodesQuery(Map.empty, Map.empty, nodeResp.list -- userResp.viewed, trendingResp.overallRanking, Map.empty, Map.empty, sagaNodeActorResponseMapper)
+                  sagaNodeReadSideActor ! RetrieveNodesQuery(None, Map.empty, Map.empty, nodeResp.list -- userResp.viewed, trendingResp.overallRanking, Map.empty, Map.empty, sagaNodeActorResponseMapper)
                   waitingForFinalNeighbourViewsFilter(referral, Seq.empty)
                 } else waitingForNeighbourViewsReply(referral, nodeResp.list, trendingResp, userResp.neighbours, Map.empty, userResp.viewed, Seq.empty)
             }.getOrElse(waitingForRecommendationReply(referral, Some(wrapperUserReply), nodeActorResponse, trendingNodesResponse))
@@ -143,7 +143,7 @@ object HomePageRecommendationActor {
           val updatedNeighbourUsers = UserDisplayInfo(wrapperUserReply.userId, wrapperUserReply.userType, wrapperUserReply.properties, wrapperUserReply.labels) +: neighbourUsers
 
           if(neighboursLeft.isEmpty) {
-            sagaNodeReadSideActor ! RetrieveNodesQuery(Map.empty, Map.empty, relevantNodes -- userViewHistory, trendingResp.overallRanking, updatedViews -- userViewHistory, Map.empty, sagaNodeActorResponseMapper)
+            sagaNodeReadSideActor ! RetrieveNodesQuery(None, Map.empty, Map.empty, relevantNodes -- userViewHistory, trendingResp.overallRanking, updatedViews -- userViewHistory, Map.empty, sagaNodeActorResponseMapper)
 
             waitingForFinalNeighbourViewsFilter(referral, updatedNeighbourUsers)
           } else waitingForNeighbourViewsReply(referral, relevantNodes, trendingResp, neighboursLeft, updatedViews, userViewHistory, updatedNeighbourUsers)

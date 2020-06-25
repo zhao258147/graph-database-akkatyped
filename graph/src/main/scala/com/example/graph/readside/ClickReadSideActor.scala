@@ -83,7 +83,7 @@ object ClickReadSideActor {
           context.self ! ClickReadSideActorOffset(NoOffset)
       }
 
-      val ts = System.currentTimeMillis() - 1800000 - 180000000//- 200000
+      val ts = System.currentTimeMillis() - 200000// - 180000000//- 200000
       val clicksStmt = new SimpleStatement(s"SELECT * FROM graph.clicks WHERE ts > $ts ALLOW FILTERING")
 
       val clicksQuery = CassandraSource(clicksStmt)

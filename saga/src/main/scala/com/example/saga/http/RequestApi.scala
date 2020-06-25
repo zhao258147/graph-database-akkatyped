@@ -10,7 +10,7 @@ import com.example.graph.GraphNodeEntity.{GraphNodeCommand, GraphNodeCommandRepl
 import com.example.saga.GetUserBookmarkedByActor.GetUserBookmarkedByReply
 import com.example.saga.GetUserBookmarksActor.GetUserBookmarksReply
 import com.example.saga.HomePageRecommendationActor.HomePageRecommendationReply
-import com.example.saga.Main.{BookmarkNodeCmd, BookmarkUserCmd, GetUserBookmarkedByCmd, GetUserBookmarksCmd, HomePageRecoCmd, NodeRecoCmd, QueryCommand, TrendingNodesCmd}
+import com.example.saga.Main.{BookmarkNodeCmd, BookmarkUserCmd, GetAllUserBookmarksCmd, GetCompanyContentsCmd, GetUserBookmarkedByCmd, GetUserBookmarksCmd, HomePageRecoCmd, NodeRecoCmd, QueryCommand, TrendingNodesCmd}
 import com.example.saga.{NodeBookmarkActor, NodeRecommendationActor}
 import com.example.saga.NodeBookmarkActor.NodeBookmarkReply
 import com.example.saga.NodeRecommendationActor.NodeRecommendationReply
@@ -25,7 +25,7 @@ import org.json4s.{DefaultFormats, Formats, native}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import com.example.saga.GetAllUserBookmarksActor.GetAllUserBookmarksReply
-import com.example.saga.Main.GetAllUserBookmarksCmd
+import com.example.saga.readside.SagaNodeReadSideActor.SagaNodeReadSideResponse
 
 object RequestApi extends Json4sSupport {
   implicit val timeout: Timeout = 40.seconds
@@ -45,6 +45,18 @@ object RequestApi extends Json4sSupport {
                 HomePageRecoCmd(referralReq.userId, referralReq.userLabels, ref)
               }
             )
+          }
+        }
+      } ~
+      pathPrefix("company") {
+        pathPrefix(Segment) { companyName =>
+          get {
+            parameterMap { params =>
+              val num = params.getOrElse("number", "0").toInt
+              complete(system.ask[SagaNodeReadSideResponse] { ref =>
+                GetCompanyContentsCmd(companyName, num, ref)
+              })
+            }
           }
         }
       } ~

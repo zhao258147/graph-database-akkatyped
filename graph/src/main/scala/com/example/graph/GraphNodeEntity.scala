@@ -48,6 +48,7 @@ object GraphNodeEntity {
     Array(
       new JsonSubTypes.Type(value = classOf[CreateNodeCommand], name = "CreateNodeCommand"),
       new JsonSubTypes.Type(value = classOf[UpdateNodeCommand], name = "UpdateNodeCommand"),
+      new JsonSubTypes.Type(value = classOf[DisableNodeCommand], name = "DisableNodeCommand"),
       new JsonSubTypes.Type(value = classOf[UpdateNodeParamsCommand], name = "UpdateNodeParamsCommand"),
       new JsonSubTypes.Type(value = classOf[RemoveEdgeCommand], name = "RemoveEdgeCommand"),
       new JsonSubTypes.Type(value = classOf[EdgeQuery], name = "EdgeQuery"),
@@ -60,6 +61,7 @@ object GraphNodeEntity {
   }
   case class CreateNodeCommand(nodeId: String, nodeType: NodeType, companyId: String, tags: Tags, properties: NodeProperties, replyTo: ActorRef[GraphNodeCommandReply]) extends GraphNodeCommand[GraphNodeCommandReply]
   case class UpdateNodeCommand(nodeId: String, tags: Tags, properties: NodeProperties, replyTo: ActorRef[GraphNodeCommandReply]) extends GraphNodeCommand[GraphNodeCommandReply]
+  case class DisableNodeCommand(nodeId: String, replyTo: ActorRef[GraphNodeCommandReply]) extends GraphNodeCommand[GraphNodeCommandReply]
   case class UpdateNodeParamsCommand(nodeId: String,
     numberOfRecommendationsToTakeOpt: Option[Int] = None,
     numberOfSimilarUsersToTakeOpt: Option[Int] = None,
@@ -99,12 +101,15 @@ object GraphNodeEntity {
     Array(
       new JsonSubTypes.Type(value = classOf[GraphNodeEdgeRemoved], name = "GraphNodeEdgeRemoved"),
       new JsonSubTypes.Type(value = classOf[GraphNodeUpdated], name = "GraphNodeUpdated"),
+      new JsonSubTypes.Type(value = classOf[GraphNodeDisabled], name = "GraphNodeDisabled"),
       new JsonSubTypes.Type(value = classOf[GraphNodeParamsUpdated], name = "GraphNodeParamsUpdated"),
       new JsonSubTypes.Type(value = classOf[GraphNodeClickUpdated], name = "GraphNodeClickUpdated"),
       new JsonSubTypes.Type(value = classOf[GraphNodeVisitorUpdated], name = "GraphNodeVisitorUpdated"),
       new JsonSubTypes.Type(value = classOf[GraphNodeEdgeUpdated], name = "GraphNodeEdgeUpdated")))
   sealed trait GraphNodeEvent
   case class GraphNodeUpdated(id: NodeId, nodeType: NodeType, companyId: String, tags: Tags, properties: NodeProperties) extends GraphNodeEvent
+  case class GraphNodeDisabled(id: NodeId) extends GraphNodeEvent
+
   case class GraphNodeParamsUpdated(id: NodeId,
     numberOfRecommendationsToTakeOpt: Option[Int] = None,
     numberOfSimilarUsersToTakeOpt: Option[Int] = None,
@@ -174,7 +179,12 @@ object GraphNodeEntity {
             case create: CreateNodeCommand =>
               Effect
                 .persist(GraphNodeUpdated(create.nodeId, create.nodeType, create.companyId, create.tags, create.properties))
-                .thenReply(create.replyTo)(_ => GraphNodeCommandSuccess(create.nodeId))
+                .thenReply(create.replyTo){
+                  case createdState: CreatedGraphNodeState =>
+                    GraphNodeCommandSuccess(create.nodeId, "node created")
+                  case _ =>
+                    GraphNodeCommandFailed(create.nodeId, "Node creation failed")
+                }
             case cmd =>
               Effect.reply(cmd.replyTo)(GraphNodeCommandFailed(cmd.nodeId, "Node does not exist"))
           }
@@ -192,6 +202,11 @@ object GraphNodeEntity {
               Effect
                 .persist(GraphNodeUpdated(createdState.nodeId, createdState.nodeType, createdState.companyId, update.tags, update.properties))
                 .thenReply(update.replyTo)(_ => GraphNodeCommandSuccess(update.nodeId))
+
+            case DisableNodeCommand(nodeId, replyTo) =>
+              Effect
+                .persist(GraphNodeDisabled(nodeId))
+                .thenReply(replyTo)(_ => GraphNodeCommandSuccess(nodeId, "Node disabled"))
 
             case updateParams: UpdateNodeParamsCommand =>
               Effect
@@ -335,6 +350,9 @@ object GraphNodeEntity {
               properties = updated.properties,
               nodeType = updated.nodeType
             )
+
+          case dsiable: GraphNodeDisabled =>
+            EmptyGraphNodeState()
 
           case paramsUpdated: GraphNodeParamsUpdated =>
             createdState.copy(

@@ -154,19 +154,20 @@ object NodeRecommendationActor {
         case WrappedUserEntityResponse(wrapperUserReply: NodeVisitRequestSuccess) =>
 //          println(wrapperUserReply)
 
-          if(wrapperUserReply.neighbours.isEmpty) {
-            sagaNodeReadSideActor ! RetrieveNodesQuery(nodeReply.tagMatching -- wrapperUserReply.recentViews, nodeReply.edgeWeight -- wrapperUserReply.recentViews, nodeActorResponse.list -- wrapperUserReply.recentViews, trendingNodesResponse.overallRanking, Map.empty, Map.empty, sagaNodeActorResponseMapper)
+//          if(wrapperUserReply.neighbours.isEmpty) {
+            sagaNodeReadSideActor ! RetrieveNodesQuery(nodeReply.properties.get("company"), nodeReply.tagMatching -- wrapperUserReply.recentViews, nodeReply.edgeWeight -- wrapperUserReply.recentViews, nodeActorResponse.list -- wrapperUserReply.recentViews, trendingNodesResponse.overallRanking, Map.empty, Map.empty, sagaNodeActorResponseMapper)
             waitingForFinalNeighbourViewsFilter(referral, nodeReply, wrapperUserReply, Seq.empty)
-          } else {
-            wrapperUserReply.neighbours.foreach{ userId =>
-              userShardRegion ! ShardingEnvelope(
-                userId,
-                NeighbouringViewsRequest(userId, userEntityResponseMapper)
-              )
-            }
-
-            waitingForNeighbourViewsReply(referral, nodeReply, wrapperUserReply, nodeReply.tagMatching, nodeReply.edgeWeight, nodeActorResponse.list, trendingNodesResponse.overallRanking, Map.empty, wrapperUserReply.neighbours, Map.empty, wrapperUserReply.recentViews, Seq.empty)
-          }
+          //disable neighbour views for now
+//          } else {
+//            wrapperUserReply.neighbours.foreach{ userId =>
+//              userShardRegion ! ShardingEnvelope(
+//                userId,
+//                NeighbouringViewsRequest(userId, userEntityResponseMapper)
+//              )
+//            }
+//
+//            waitingForNeighbourViewsReply(referral, nodeReply, wrapperUserReply, nodeReply.tagMatching, nodeReply.edgeWeight, nodeActorResponse.list, trendingNodesResponse.overallRanking, Map.empty, wrapperUserReply.neighbours, Map.empty, wrapperUserReply.recentViews, Seq.empty)
+//          }
 
         case WrappedUserEntityResponse(wrapperUserReply: UserCommandFailed) =>
           referral.replyTo ! NodeRecommendationFailed(wrapperUserReply.error)
@@ -192,7 +193,7 @@ object NodeRecommendationActor {
           val updatedNeighboursInfo = UserDisplayInfo(wrapperUserReply.userId, wrapperUserReply.userType, wrapperUserReply.properties, wrapperUserReply.labels) +: neighbourUsers
 
           if(neighbours.size == updatedNeighboursInfo.size) {
-            sagaNodeReadSideActor ! RetrieveNodesQuery(tagMatching -- viewed, edgeWeight -- viewed, relevant -- viewed, trending, updatedViews -- viewed, trendingByTag, sagaNodeActorResponseMapper)
+            sagaNodeReadSideActor ! RetrieveNodesQuery(nodeReply.properties.get("company"), tagMatching -- viewed, edgeWeight -- viewed, relevant -- viewed, trending, updatedViews -- viewed, trendingByTag, sagaNodeActorResponseMapper)
             waitingForFinalNeighbourViewsFilter(referral, nodeReply, userReply, updatedNeighboursInfo)
           } else waitingForNeighbourViewsReply(referral, nodeReply, userReply, tagMatching, edgeWeight, relevant, trending, trendingByTag, neighbours, viewsCollected, viewed, updatedNeighboursInfo)
 
@@ -212,7 +213,22 @@ object NodeRecommendationActor {
         case WrappedSagaNodeActorResponse(nodesResponse: SagaNodesInfoResponse) =>
 //          println("WrappedSagaNodeActorResponse")
 //          println(nodesResponse)
-          referral.replyTo ! NodeRecommendationSuccess(referral.userId, referral.nodeId, nodeReply.nodeType, nodeReply.tags, nodeReply.properties, userReply.updatedLabels, nodesResponse.tagMatching, nodesResponse.relevant, nodesResponse.edgeWeight, nodesResponse.trending, nodesResponse.trendingByTag, nodesResponse.neighbourHistory, neighbourUsers)
+          val recommended = nodesResponse.edgeWeight.take(4)
+          referral.replyTo ! NodeRecommendationSuccess(
+            referral.userId,
+            referral.nodeId,
+            nodeReply.nodeType,
+            nodeReply.tags,
+            nodeReply.properties - "article_en" - "article_zh",
+            userReply.updatedLabels,
+            recommended, //nodesResponse.tagMatching
+            (nodesResponse.tagMatching ++ nodesResponse.relevant).take(4 - recommended.size),
+            Seq.empty, //nodesResponse.edgeWeight.take(3)
+            nodesResponse.trending,
+            nodesResponse.trendingByTag,
+            Seq.empty, //nodesResponse.neighbourHistory
+            Seq.empty //neighbourUsers
+          )
           Behaviors.stopped
 
         case NodeRecommendationTimeout =>
