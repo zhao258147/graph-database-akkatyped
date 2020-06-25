@@ -61,10 +61,10 @@ object SagaNodeReadSideActor {
       def collectNewNode(nodeMap: HashMap[String, NodeInfo], nodesByCompany: HashMap[String, Seq[NodeInfo]]): Behavior[SagaNodeReadSideCommand] =
         Behaviors.receiveMessagePartial{
           case NodeInformationUpdate(node) =>
-            println(node.toString)
             val noExtraInfo = node.copy(properties = node.properties - "article_en" - "article_zh")
-            val companyList = node +: nodesByCompany.getOrElse(node.company, Seq.empty)
-            collectNewNode(nodeMap + (node.nodeId -> node), nodesByCompany + (node.company -> companyList))
+            println(nodeMap.keySet)
+            val companyList = noExtraInfo +: nodesByCompany.getOrElse(node.company, Seq.empty)
+            collectNewNode(nodeMap + (node.nodeId -> noExtraInfo), nodesByCompany + (node.company -> companyList))
 
           case RetrieveCompanyNodesQuery(company, number, replyTo) =>
             replyTo ! SagaCompanyNodesResponse(
@@ -83,6 +83,8 @@ object SagaNodeReadSideActor {
             Behaviors.same
 
           case retrieval: RetrieveNodesQuery =>
+            println(nodeMap.size)
+            println(nodeMap.keySet)
             val edgeWeightNodes = retrieval.edgeWeight.flatMap{
               case (id, weight) =>
                 nodeMap.get(id).map(RecoWithNodeInfo(_, "edge-weight", weight))

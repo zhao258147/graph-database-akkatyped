@@ -10,6 +10,7 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.datastax.driver.core._
 import com.datastax.driver.core.utils.UUIDs
 import com.example.graph.GraphNodeEntity._
+import com.example.graph.readside.ClickReadSideActor
 import com.example.graph.readside.NodeReadSideActor._
 import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
 
@@ -39,45 +40,12 @@ object SagaTrendingNodesActor {
 
       val ts = System.currentTimeMillis() - 18000000// - 180000000//- 200000
       println(ts)
-      val clicksStmt = new SimpleStatement(s"SELECT * FROM graph.clicks WHERE ts > $ts ALLOW FILTERING")
-
-      Try {
-        val clicksQuery = CassandraSource(clicksStmt)
-          .map { row =>
-            NodeClickInfo(
-              row.getString("company"),
-              row.getString("id"),
-              row.getMap("tags", classOf[String], classOf[java.lang.Integer]).asScala.toMap.keySet,
-              row.getLong("ts"),
-              row.getInt("clicks")
-            )
-          }
-          .runWith(Sink.seq)
-
-        clicksQuery
-          .map { x: immutable.Seq[NodeClickInfo] =>
-            println("yyyyyyyyyyy" * 10)
-            println(x)
-            context.self ! OnStartNodeClickInfo(x)
-          }
-          .recover {
-            case ex =>
-              println("ex" * 10)
-              println(ex)
-              context.self ! OnStartNodeClickInfo(Seq.empty)
-          }
-      }.recover{
-        case ex =>
-          println("eex" * 10)
-          println(ex)
-          context.self ! OnStartNodeClickInfo(Seq.empty)
-      }
 
       val offset = TimeBasedUUID(UUIDs.startOf(ts))
       println("offset"*10)
       println(offset)
       val queries = PersistenceQuery(system).readJournalFor[CassandraReadJournal](CassandraReadJournal.Identifier)
-      val createdStream: Source[EventEnvelope, NotUsed] = queries.eventsByTag(NodeUpdateEventName, offset)
+      val createdStream: Source[EventEnvelope, NotUsed] = queries.eventsByTag(ClickReadSideActor.ClickUpdateEventName, offset)
       createdStream
         .map {
           case ee@EventEnvelope(_, _, _, value: GraphNodeClickUpdated) =>
@@ -116,7 +84,6 @@ object SagaTrendingNodesActor {
       def collectNewNode(list: Seq[NodeClickInfo], sortedOverallList: Map[String, Int]): Behavior[SagaTrendingNodesCommand] =
         Behaviors.receiveMessagePartial{
           case click: NodeClickInfo =>
-            println(s"$click")
             val newList = click +: (if(list.size > 1000) list.take(900) else list)
 
             collectNewNode(newList, calculateOverallList(newList))
@@ -126,7 +93,7 @@ object SagaTrendingNodesActor {
             Behaviors.same
         }
 
-      waitingForInitialLoad
+      collectNewNode(Seq.empty, Map.empty)
     }
 
 }

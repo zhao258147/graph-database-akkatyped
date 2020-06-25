@@ -88,23 +88,23 @@ object Main extends App {
   val offsetManagement = new OffsetManagement
 
   val singletonManager = ClusterSingleton(typedSystem)
-  val nodeReadSideActor = singletonManager.init(
-    SingletonActor(
-      Behaviors.supervise(
-        NodeReadSideActor.ReadSideActorBehaviour(
-          config.readSideConfig,
-          offsetManagement
-        )
-      ).onFailure[Exception](SupervisorStrategy.restart), "NodeReadSide"))
-
-  val clickReadSideActor: ActorRef[ClickReadSideActor.ClickStatCommands] = singletonManager.init(
-    SingletonActor(
-      Behaviors.supervise(
-        ClickReadSideActor.behaviour(
-          config.readSideConfig,
-          offsetManagement
-        )
-      ).onFailure[Exception](SupervisorStrategy.restart), "ClickReadSide"))
+//  val nodeReadSideActor = singletonManager.init(
+//    SingletonActor(
+//      Behaviors.supervise(
+//        NodeReadSideActor.ReadSideActorBehaviour(
+//          config.readSideConfig,
+//          offsetManagement
+//        )
+//      ).onFailure[Exception](SupervisorStrategy.restart), "NodeReadSide"))
+//
+//  val clickReadSideActor: ActorRef[ClickReadSideActor.ClickStatCommands] = singletonManager.init(
+//    SingletonActor(
+//      Behaviors.supervise(
+//        ClickReadSideActor.behaviour(
+//          config.readSideConfig,
+//          offsetManagement
+//        )
+//      ).onFailure[Exception](SupervisorStrategy.restart), "ClickReadSide"))
 
   sealed trait QueryCommand
   case class NodeRecoCmd(nodeId: NodeId, userId: UserId, userLabels: Map[String, Int], bias: NodeVisitBias, replyTo: ActorRef[NodeRecommendationReply]) extends QueryCommand
