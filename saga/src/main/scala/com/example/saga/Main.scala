@@ -126,12 +126,12 @@ object Main extends App {
 
     Behaviors.receiveMessage{
       case referral: NodeRecoCmd =>
-        val sagaActor = context.spawn(NodeRecommendationActor(graphShardRegion, userShardRegion, clickReadSideActor, sagaNodeReadSideActor), UUID.randomUUID().toString)
+        val sagaActor = context.spawn(NodeRecommendationActor(graphShardRegion, userShardRegion, sagaTrendingActor, sagaNodeReadSideActor), UUID.randomUUID().toString)
         sagaActor ! NodeReferral(referral.nodeId, referral.userId, referral.userLabels, referral.bias, referral.replyTo)
         Behaviors.same
 
       case home: HomePageRecoCmd =>
-        val sagaActor = context.spawn(HomePageRecommendationActor(userShardRegion, clickReadSideActor, sagaNodeReadSideActor), UUID.randomUUID().toString)
+        val sagaActor = context.spawn(HomePageRecommendationActor(userShardRegion, sagaTrendingActor, sagaNodeReadSideActor), UUID.randomUUID().toString)
         sagaActor ! HomePageRecommendation(home.userId, home.userLabels, home.replyTo)
         Behaviors.same
 

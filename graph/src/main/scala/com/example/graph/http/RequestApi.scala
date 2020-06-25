@@ -175,6 +175,20 @@ object RequestApi extends Json4sSupport {
               }
             }
           } ~
+          pathPrefix("delete") {
+            get {
+              complete(
+                graphCordinator.ask[GraphNodeCommandReply] { ref =>
+                  ShardingEnvelope(nodeId, DisableNodeCommand(nodeId, ref))
+                }.map{
+                  case _: GraphNodeCommandSuccess =>
+                    complete(StatusCodes.OK)
+                  case _ =>
+                    complete(StatusCodes.BadRequest)
+                }
+              )
+            }
+          } ~
           delete {
             complete(
               graphCordinator.ask[GraphNodeCommandReply] { ref =>

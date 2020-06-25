@@ -38,7 +38,6 @@ object NodeTrendingActor {
     def waitingForTrendingNodes(referral: GetTrendingNodes): Behavior[NodeTrendingCommand] =
       Behaviors.receiveMessage{
         case WrappedClickActorResponse(trendingNodes: TrendingNodes) =>
-          println(trendingNodes)
           sagaNodeReadSideActor ! RetrieveNodesQuery(None, Map.empty, Map.empty, Map.empty, trendingNodes.overallRanking, Map.empty, Map.empty, sagaNodeActorResponseMapper)
 
           waitingForNodeInfo(referral)
@@ -51,7 +50,6 @@ object NodeTrendingActor {
     def waitingForNodeInfo(referral: GetTrendingNodes): Behavior[NodeTrendingCommand] =
       Behaviors.receiveMessage{
         case WrappedSagaNodeActorResponse(info: SagaNodesInfoResponse) =>
-          println(info)
           referral.replyTo ! NodeBookmarkReqSuccess(info.trending)
 
           Behaviors.stopped

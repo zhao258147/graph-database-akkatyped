@@ -6,11 +6,14 @@ import akka.cluster.sharding.typed.ShardingEnvelope
 import com.datastax.driver.core.Session
 import com.example.graph.GraphNodeEntity._
 import com.example.graph.readside.ClickReadSideActor.{TrendingNodesCommand, TrendingNodesResponse}
+import com.example.graph.readside.NodeReadSideActor.NodeInfo
 import com.example.graph.readside.{ClickReadSideActor, NodeReadSideActor}
 import com.example.saga.readside.SagaNodeReadSideActor._
+import com.example.saga.readside.SagaTrendingNodesActor.{SagaTrendingNodesCommand, TrendingNodes}
 import com.example.user.UserNodeEntity._
 
 import scala.concurrent.duration._
+import scala.util.Random
 
 object NodeRecommendationActor {
   val SagaEdgeType = "User"
@@ -26,11 +29,11 @@ object NodeRecommendationActor {
   case class NodeReferral(nodeId: NodeId, userId: UserId, userLabels: Map[String, Int], bias: NodeVisitBias, replyTo: ActorRef[NodeRecommendationReply]) extends NodeRecommendationCommand
   case class WrappedNodeEntityResponse(nodeEntityResponse: GraphNodeCommandReply) extends NodeRecommendationCommand
   case class WrappedUserEntityResponse(userEntityResponse: UserReply) extends NodeRecommendationCommand
-  case class WrappedClickActorResponse(trendingResponse: TrendingNodesResponse) extends NodeRecommendationCommand
+  case class WrappedClickActorResponse(trendingResponse: TrendingNodes) extends NodeRecommendationCommand
   case class WrappedSagaNodeActorResponse(nodesResponse: SagaNodeReadSideResponse) extends NodeRecommendationCommand
 
   sealed trait NodeRecommendationReply
-  case class NodeRecommendationSuccess(userId: String, nodeId: String, nodeType: String, tags: Map[String, Int], nodeProperties: Map[String, String], updatedLabels: Map[String, Int], recommended: Seq[RecoWithNodeInfo], relevant: Seq[RecoWithNodeInfo], popular: Seq[RecoWithNodeInfo], overallRanking: Seq[RecoWithNodeInfo], rankingByType: Map[String, Seq[RecoWithNodeInfo]], neighbourHistory: Seq[RecoWithNodeInfo], similarUsers: Seq[UserDisplayInfo]) extends NodeRecommendationReply
+  case class NodeRecommendationSuccess(userId: String, nodeId: String, nodeType: String, tags: Map[String, Int], nodeProperties: Map[String, String], updatedLabels: Map[String, Int], recommended: Seq[RecoWithNodeInfo], relevant: Seq[RecoWithNodeInfo], popular: Seq[RecoWithNodeInfo], overallRanking: Seq[RecoWithNodeInfo], rankingByType: Map[String, Seq[RecoWithNodeInfo]], neighbourHistory: Seq[RecoWithNodeInfo], similarUsers: Seq[UserDisplayInfo], companyNodes: Option[Seq[NodeInfo]]) extends NodeRecommendationReply
   case class NodeRecommendationFailed(message: String) extends NodeRecommendationReply
 
   private def checkAllResps(
@@ -39,7 +42,7 @@ object NodeRecommendationActor {
     userShardRegion: ActorRef[ShardingEnvelope[UserCommand[UserReply]]],
     recommendedResult: Option[RecommendedResult],
     nodeActorResponse: Option[SagaNodesQueryResponse],
-    trendingNodesResponse: Option[TrendingNodesResponse]
+    trendingNodesResponse: Option[TrendingNodes]
   ) = for {
     entityResp <- recommendedResult
     nodeResp <- nodeActorResponse
@@ -63,7 +66,7 @@ object NodeRecommendationActor {
   def apply(
     graphShardRegion: ActorRef[ShardingEnvelope[GraphNodeCommand[GraphNodeCommandReply]]],
     userShardRegion: ActorRef[ShardingEnvelope[UserCommand[UserReply]]],
-    clickReadSideActor: ActorRef[ClickReadSideActor.ClickStatCommands],
+    clickReadSideActor: ActorRef[SagaTrendingNodesCommand],
     sagaNodeReadSideActor: ActorRef[SagaNodeReadSideCommand]
   )(implicit session: Session): Behavior[NodeRecommendationCommand] =
     Behaviors.withTimers(timers => sagaBehaviour(graphShardRegion, userShardRegion, clickReadSideActor, sagaNodeReadSideActor, timers))
@@ -71,7 +74,7 @@ object NodeRecommendationActor {
   def sagaBehaviour(
     graphShardRegion: ActorRef[ShardingEnvelope[GraphNodeCommand[GraphNodeCommandReply]]],
     userShardRegion: ActorRef[ShardingEnvelope[UserCommand[UserReply]]],
-    clickReadSideActor: ActorRef[ClickReadSideActor.ClickStatCommands],
+    clickReadSideActor: ActorRef[SagaTrendingNodesCommand],
     sagaNodeReadSideActor: ActorRef[SagaNodeReadSideCommand],
     timer: TimerScheduler[NodeRecommendationCommand]
   )(implicit session: Session): Behavior[NodeRecommendationCommand] = Behaviors.setup { cxt =>
@@ -81,7 +84,7 @@ object NodeRecommendationActor {
     val userEntityResponseMapper: ActorRef[UserReply] =
       cxt.messageAdapter(rsp => WrappedUserEntityResponse(rsp))
 
-    val trendingActorResponseMapper: ActorRef[TrendingNodesResponse] =
+    val trendingActorResponseMapper: ActorRef[TrendingNodes] =
       cxt.messageAdapter(rsp => WrappedClickActorResponse(rsp))
 
     val sagaNodeActorResponseMapper: ActorRef[SagaNodeReadSideResponse] =
@@ -111,7 +114,7 @@ object NodeRecommendationActor {
           Behaviors.stopped
       }
 
-    def waitingForRecommendationReply(referral: NodeReferral, recommendedResult: Option[RecommendedResult], nodeActorResponse: Option[SagaNodesQueryResponse], trendingNodesResponse: Option[TrendingNodesResponse]): Behavior[NodeRecommendationCommand] =
+    def waitingForRecommendationReply(referral: NodeReferral, recommendedResult: Option[RecommendedResult], nodeActorResponse: Option[SagaNodesQueryResponse], trendingNodesResponse: Option[TrendingNodes]): Behavior[NodeRecommendationCommand] =
       Behaviors.receiveMessage {
         case WrappedNodeEntityResponse(wrappedNodeReply: GraphNodeCommandFailed) =>
           referral.replyTo ! NodeRecommendationFailed(wrappedNodeReply.error)
@@ -214,20 +217,24 @@ object NodeRecommendationActor {
 //          println("WrappedSagaNodeActorResponse")
 //          println(nodesResponse)
           val recommended = nodesResponse.edgeWeight.take(4)
+          val relevant = nodesResponse.tagMatching ++ nodesResponse.relevant
+          val rand = new Random()
+          val randStart = rand.nextInt(nodesResponse.relevant.size - 4)
           referral.replyTo ! NodeRecommendationSuccess(
             referral.userId,
             referral.nodeId,
             nodeReply.nodeType,
             nodeReply.tags,
-            nodeReply.properties - "article_en" - "article_zh",
+            nodeReply.properties,
             userReply.updatedLabels,
             recommended, //nodesResponse.tagMatching
-            (nodesResponse.tagMatching ++ nodesResponse.relevant).take(4 - recommended.size),
+            relevant.slice( randStart, randStart + 4),
             Seq.empty, //nodesResponse.edgeWeight.take(3)
             nodesResponse.trending,
             nodesResponse.trendingByTag,
             Seq.empty, //nodesResponse.neighbourHistory
-            Seq.empty //neighbourUsers
+            Seq.empty, //neighbourUsers
+            nodesResponse.companyNodes
           )
           Behaviors.stopped
 

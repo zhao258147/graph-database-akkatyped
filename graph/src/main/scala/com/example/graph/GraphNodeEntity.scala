@@ -108,7 +108,7 @@ object GraphNodeEntity {
       new JsonSubTypes.Type(value = classOf[GraphNodeEdgeUpdated], name = "GraphNodeEdgeUpdated")))
   sealed trait GraphNodeEvent
   case class GraphNodeUpdated(id: NodeId, nodeType: NodeType, companyId: String, tags: Tags, properties: NodeProperties) extends GraphNodeEvent
-  case class GraphNodeDisabled(id: NodeId) extends GraphNodeEvent
+  case class GraphNodeDisabled(id: NodeId, companyId: String) extends GraphNodeEvent
 
   case class GraphNodeParamsUpdated(id: NodeId,
     numberOfRecommendationsToTakeOpt: Option[Int] = None,
@@ -205,7 +205,7 @@ object GraphNodeEntity {
 
             case DisableNodeCommand(nodeId, replyTo) =>
               Effect
-                .persist(GraphNodeDisabled(nodeId))
+                .persist(GraphNodeDisabled(nodeId, createdState.companyId))
                 .thenReply(replyTo)(_ => GraphNodeCommandSuccess(nodeId, "Node disabled"))
 
             case updateParams: UpdateNodeParamsCommand =>
@@ -486,6 +486,7 @@ object GraphNodeEntity {
       .withRetention(RetentionCriteria.snapshotEvery(numberOfEvents = 20, keepNSnapshots = 2))
       .withTagger{
         case _: GraphNodeUpdated => Set(NodeReadSideActor.NodeUpdateEventName, EventTags.CommonEvtTag)
+        case _: GraphNodeDisabled => Set(NodeReadSideActor.NodeUpdateEventName, EventTags.CommonEvtTag)
         case _: GraphNodeClickUpdated => Set(ClickReadSideActor.ClickUpdateEventName, EventTags.CommonEvtTag)
         case _ => Set(EventTags.CommonEvtTag)
       }

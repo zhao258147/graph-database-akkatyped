@@ -38,7 +38,7 @@ object SagaTrendingNodesActor {
       implicit val system: ActorSystem[Nothing] = context.system
       implicit val ec: ExecutionContextExecutor = system.executionContext
 
-      val ts = System.currentTimeMillis() - 18000000// - 180000000//- 200000
+      val ts = System.currentTimeMillis() - 180000000// - 180000000//- 200000
       println(ts)
 
       val offset = TimeBasedUUID(UUIDs.startOf(ts))
@@ -71,8 +71,6 @@ object SagaTrendingNodesActor {
             println("x"*100)
             context.log.debug(list.toString)
             println(s"$list")
-
-
 
             collectNewNode(list, calculateOverallList(list))
 

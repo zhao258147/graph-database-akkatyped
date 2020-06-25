@@ -26,6 +26,7 @@ object SagaNodeReadSideActor {
       new JsonSubTypes.Type(value = classOf[RelatedNodeQuery], name = "RelatedNodeQuery")))
   sealed trait SagaNodeReadSideCommand
   case class NodeInformationUpdate(node: NodeInfo) extends SagaNodeReadSideCommand
+  case class NodeDisabled(nodeId: String, companyId: String) extends SagaNodeReadSideCommand
   case class RelatedNodeQuery(tags: Tags, replyTo: ActorRef[SagaNodesQueryResponse]) extends SagaNodeReadSideCommand
   case class RetrieveNodesQuery(companyName: Option[String], tagMatching: Map[String, Int], edgeWeight: Map[String, Int], relevant: Map[String, Int], trending: Map[String, Int], neighbourHistory: Map[String, Int], trendingByTag: Map[String, Seq[(String, Int)]], replyTo: ActorRef[SagaNodesInfoResponse]) extends SagaNodeReadSideCommand
   case class RetrieveCompanyNodesQuery(companyName: String, number: Int, replyTo: ActorRef[SagaNodeReadSideResponse]) extends SagaNodeReadSideCommand
@@ -50,8 +51,8 @@ object SagaNodeReadSideActor {
           case ee@EventEnvelope(_, _, _, value: GraphNodeUpdated) =>
             context.self ! NodeInformationUpdate(NodeInfo(value.companyId, value.id, value.nodeType, value.tags, value.properties))
             ee
-          case ee@EventEnvelope(_, _, _, value: GraphNodeUpdated) =>
-            context.self ! NodeInformationUpdate(NodeInfo(value.companyId, value.id, value.nodeType, value.tags, value.properties))
+          case ee@EventEnvelope(_, _, _, value: GraphNodeDisabled) =>
+            context.self ! NodeDisabled(value.id, value.companyId)
             ee
           case ee =>
             ee
@@ -62,9 +63,38 @@ object SagaNodeReadSideActor {
         Behaviors.receiveMessagePartial{
           case NodeInformationUpdate(node) =>
             val noExtraInfo = node.copy(properties = node.properties - "article_en" - "article_zh")
-            println(nodeMap.keySet)
-            val companyList = noExtraInfo +: nodesByCompany.getOrElse(node.company, Seq.empty)
-            collectNewNode(nodeMap + (node.nodeId -> noExtraInfo), nodesByCompany + (node.company -> companyList))
+            println(noExtraInfo)
+
+            val propertyCompanyMap = for{
+              companyId <- node.properties.get("company")
+              tempCList <- nodesByCompany.get(companyId)
+            } yield {
+              if(tempCList.exists(_.nodeId == noExtraInfo.nodeId))
+                Map(companyId -> tempCList)
+              else
+                Map(companyId -> (noExtraInfo +: tempCList))
+            }
+
+            val clist = nodesByCompany.getOrElse(node.company, Seq.empty)
+            val companyList =
+              if(clist.exists(_.nodeId == noExtraInfo.nodeId))
+                clist
+              else
+                noExtraInfo +: clist
+
+            val newCompanyMap = propertyCompanyMap.getOrElse(Map.empty) + (node.company -> companyList)
+
+            collectNewNode(nodeMap + (node.nodeId -> noExtraInfo), nodesByCompany ++ newCompanyMap)
+
+          case NodeDisabled(nodeId, companyId) =>
+            println(s"removing node $nodeId")
+            val clist = nodesByCompany.getOrElse(companyId, Seq.empty)
+            println(s"removing node ${clist.map(_.nodeId)}")
+            val companyList = clist.filter(_.nodeId != nodeId)
+            println(s"removed node ${companyList.map(_.nodeId)}")
+
+            collectNewNode(nodeMap - nodeId, nodesByCompany + (companyId -> companyList))
+
 
           case RetrieveCompanyNodesQuery(company, number, replyTo) =>
             replyTo ! SagaCompanyNodesResponse(
@@ -83,38 +113,61 @@ object SagaNodeReadSideActor {
             Behaviors.same
 
           case retrieval: RetrieveNodesQuery =>
-            println(nodeMap.size)
-            println(nodeMap.keySet)
             val edgeWeightNodes = retrieval.edgeWeight.flatMap{
               case (id, weight) =>
-                nodeMap.get(id).map(RecoWithNodeInfo(_, "edge-weight", weight))
+                nodeMap
+                  .get(id)
+                  .filterNot(_.company == retrieval.companyName.getOrElse(""))
+                  .map(RecoWithNodeInfo(_, "edge-weight", weight))
             }.toSeq
             val tagMatchingNodes = retrieval.tagMatching.flatMap{
               case (id, weight) =>
-                nodeMap.get(id).map(RecoWithNodeInfo(_, "tag-matching", weight))
+                nodeMap
+                  .get(id)
+                  .filterNot(_.company == retrieval.companyName.getOrElse(""))
+                  .map(RecoWithNodeInfo(_, "tag-matching", weight))
             }.toSeq
             val relevantNodes = retrieval.relevant.flatMap{
               case (id, weight) =>
-                nodeMap.get(id).map(RecoWithNodeInfo(_, "relevant", weight))
+                nodeMap
+                  .get(id)
+                  .filterNot(_.company == retrieval.companyName.getOrElse(""))
+                  .map(RecoWithNodeInfo(_, "relevant", weight))
             }.toSeq
             val trendingNodes = retrieval.trending.flatMap{
               case (id, weight) =>
-                nodeMap.get(id).map(RecoWithNodeInfo(_, "trending", weight))
+                nodeMap
+                  .get(id)
+                  .filterNot(_.company == retrieval.companyName.getOrElse(""))
+                  .map(RecoWithNodeInfo(_, "trending", weight))
             }.toSeq
             val neighbouringNodes = retrieval.neighbourHistory.flatMap{
               case (id, weight) =>
-                nodeMap.get(id).map(RecoWithNodeInfo(_, "neighbour-history", weight))
+                nodeMap
+                  .get(id)
+                  .filterNot(_.company == retrieval.companyName.getOrElse(""))
+                  .map(RecoWithNodeInfo(_, "neighbour-history", weight))
             }.toSeq
 
             val trendingByTagNodes: Map[String, Seq[RecoWithNodeInfo]] = retrieval.trendingByTag.mapValues{ tagTrending =>
               tagTrending.flatMap{
                 case (id, weight) =>
-                  nodeMap.get(id).map(RecoWithNodeInfo(_, "trending-by-tag", weight))
+                  nodeMap
+                    .get(id)
+                    .filterNot(_.company == retrieval.companyName.getOrElse(""))
+                    .map(RecoWithNodeInfo(_, "trending-by-tag", weight))
               }
             }
 
-            val companyNodes = retrieval.companyName.map{ x =>
-              nodesByCompany.getOrElse(x, Seq.empty)
+            val companyNodes = for {
+              cn <- retrieval.companyName
+              ls <- nodesByCompany.get(cn)
+            } yield {
+              val start =
+                if(ls.size <= 5) 0
+                else rand.nextInt(ls.size - 5)
+
+              ls.slice(start, start + 5)
             }
             retrieval.replyTo ! SagaNodesInfoResponse(tagMatchingNodes, edgeWeightNodes, relevantNodes, trendingNodes, neighbouringNodes, trendingByTagNodes, companyNodes)
             Behaviors.same
