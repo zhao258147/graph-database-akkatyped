@@ -8,6 +8,7 @@ import com.example.graph.readside.ClickReadSideActor
 import com.example.graph.readside.ClickReadSideActor.{TrendingNodesCommand, TrendingNodesResponse}
 import com.example.saga.NodeRecommendationActor._
 import com.example.saga.readside.SagaNodeReadSideActor.{apply => _, _}
+import com.example.saga.readside.SagaTrendingNodesActor.{SagaTrendingNodesCommand, TrendingNodes}
 import com.example.saga.readside.{SagaNodeReadSideActor, SagaTrendingNodesActor}
 import com.example.user.UserNodeEntity._
 
@@ -16,7 +17,7 @@ object HomePageRecommendationActor {
   case object HomePageRecommendationTimeout extends HomePageRecommendationCommand
   case class HomePageRecommendation(userId: UserId, userLabels: Map[String, Int], replyTo: ActorRef[HomePageRecommendationReply]) extends HomePageRecommendationCommand
   case class WrappedUserEntityResponse(userEntityResponse: UserReply) extends HomePageRecommendationCommand
-  case class WrappedClickActorResponse(trendingResponse: TrendingNodesResponse) extends HomePageRecommendationCommand
+  case class WrappedClickActorResponse(trendingResponse: TrendingNodes) extends HomePageRecommendationCommand
   case class WrappedSagaNodeActorResponse(nodesResponse: SagaNodeReadSideResponse) extends HomePageRecommendationCommand
 
   sealed trait HomePageRecommendationReply
@@ -29,7 +30,7 @@ object HomePageRecommendationActor {
     userShardRegion: ActorRef[ShardingEnvelope[UserCommand[UserReply]]],
     userHistoryResponse: Option[UserHistoryResponse],
     nodeActorResponse: Option[SagaNodesQueryResponse],
-    trendingNodesResponse: Option[TrendingNodesResponse]
+    trendingNodesResponse: Option[TrendingNodes]
   ): Option[(UserHistoryResponse, SagaNodesQueryResponse, TrendingNodesResponse, Boolean)] = for {
     nodeResp <- nodeActorResponse
 //    trendingResp <- trendingNodesResponse
@@ -48,21 +49,21 @@ object HomePageRecommendationActor {
 
   def apply(
     userShardRegion: ActorRef[ShardingEnvelope[UserCommand[UserReply]]],
-    clickReadSideActor: ActorRef[ClickReadSideActor.ClickStatCommands],
+    clickReadSideActor: ActorRef[SagaTrendingNodesCommand],
     sagaNodeReadSideActor: ActorRef[SagaNodeReadSideActor.SagaNodeReadSideCommand]
   )(implicit session: Session): Behavior[HomePageRecommendationCommand] =
     Behaviors.withTimers(timers => sagaBehaviour(userShardRegion, clickReadSideActor, sagaNodeReadSideActor, timers))
 
   def sagaBehaviour(
     userShardRegion: ActorRef[ShardingEnvelope[UserCommand[UserReply]]],
-    clickReadSideActor: ActorRef[ClickReadSideActor.ClickStatCommands],
+    clickReadSideActor: ActorRef[SagaTrendingNodesCommand],
     sagaNodeReadSideActor: ActorRef[SagaNodeReadSideActor.SagaNodeReadSideCommand],
     timer: TimerScheduler[HomePageRecommendationCommand]
   )(implicit session: Session): Behavior[HomePageRecommendationCommand] = Behaviors.setup { cxt =>
     val userEntityResponseMapper: ActorRef[UserReply] =
       cxt.messageAdapter(rsp => WrappedUserEntityResponse(rsp))
 
-    val trendingActorResponseMapper: ActorRef[TrendingNodesResponse] =
+    val trendingActorResponseMapper: ActorRef[TrendingNodes] =
       cxt.messageAdapter(rsp => WrappedClickActorResponse(rsp))
 
     val sagaNodeActorResponseMapper: ActorRef[SagaNodeReadSideResponse] =
@@ -86,14 +87,14 @@ object HomePageRecommendationActor {
           Behaviors.stopped
       }
 
-    def waitingForRecommendationReply(referral: HomePageRecommendation, userHistoryResponse: Option[UserHistoryResponse], nodeActorResponse: Option[SagaNodesQueryResponse], trendingNodesResponse: Option[TrendingNodesResponse]): Behavior[HomePageRecommendationCommand] =
+    def waitingForRecommendationReply(referral: HomePageRecommendation, userHistoryResponse: Option[UserHistoryResponse], nodeActorResponse: Option[SagaNodesQueryResponse], trendingNodesResponse: Option[TrendingNodes]): Behavior[HomePageRecommendationCommand] =
       Behaviors.receiveMessage {
         case WrappedClickActorResponse(wrappedTrendingReply) =>
           checkAllResps(userEntityResponseMapper, referral, userShardRegion, userHistoryResponse, nodeActorResponse, Some(wrappedTrendingReply))
             .map{
               case (userResp, nodeResp, trendingResp, noNeighbours) =>
                 if(noNeighbours) {
-                  sagaNodeReadSideActor ! RetrieveNodesQuery(Map.empty, Map.empty, nodeResp.list -- userResp.viewed, trendingResp.overallRanking, Map.empty, Map.empty, sagaNodeActorResponseMapper)
+                  sagaNodeReadSideActor ! RetrieveNodesQuery(None, Map.empty, Map.empty, nodeResp.list -- userResp.viewed, trendingResp.overallRanking, Map.empty, Map.empty, sagaNodeActorResponseMapper)
                   waitingForFinalNeighbourViewsFilter(referral, Seq.empty)
                 } else waitingForNeighbourViewsReply(referral, nodeResp.list, trendingResp, userResp.neighbours, Map.empty, userResp.viewed, Seq.empty)
             }.getOrElse(waitingForRecommendationReply(referral, userHistoryResponse, nodeActorResponse, Some(wrappedTrendingReply)))
@@ -103,7 +104,7 @@ object HomePageRecommendationActor {
             .map{
               case (userResp, nodeResp, trendingResp, noNeighbours) =>
                 if(noNeighbours) {
-                  sagaNodeReadSideActor ! RetrieveNodesQuery(Map.empty, Map.empty, nodeResp.list -- userResp.viewed, trendingResp.overallRanking, Map.empty, Map.empty, sagaNodeActorResponseMapper)
+                  sagaNodeReadSideActor ! RetrieveNodesQuery(None, Map.empty, Map.empty, nodeResp.list -- userResp.viewed, trendingResp.overallRanking, Map.empty, Map.empty, sagaNodeActorResponseMapper)
                   waitingForFinalNeighbourViewsFilter(referral, Seq.empty)
                 } else waitingForNeighbourViewsReply(referral, nodeResp.list, trendingResp, userResp.neighbours, Map.empty, userResp.viewed, Seq.empty)
             }.getOrElse(waitingForRecommendationReply(referral, userHistoryResponse, Some(wrappedNodeReply), trendingNodesResponse))
@@ -113,7 +114,7 @@ object HomePageRecommendationActor {
             .map{
               case (userResp, nodeResp, trendingResp, noNeighbours) =>
                 if(noNeighbours) {
-                  sagaNodeReadSideActor ! RetrieveNodesQuery(Map.empty, Map.empty, nodeResp.list -- userResp.viewed, trendingResp.overallRanking, Map.empty, Map.empty, sagaNodeActorResponseMapper)
+                  sagaNodeReadSideActor ! RetrieveNodesQuery(None, Map.empty, Map.empty, nodeResp.list -- userResp.viewed, trendingResp.overallRanking, Map.empty, Map.empty, sagaNodeActorResponseMapper)
                   waitingForFinalNeighbourViewsFilter(referral, Seq.empty)
                 } else waitingForNeighbourViewsReply(referral, nodeResp.list, trendingResp, userResp.neighbours, Map.empty, userResp.viewed, Seq.empty)
             }.getOrElse(waitingForRecommendationReply(referral, Some(wrapperUserReply), nodeActorResponse, trendingNodesResponse))
@@ -143,7 +144,7 @@ object HomePageRecommendationActor {
           val updatedNeighbourUsers = UserDisplayInfo(wrapperUserReply.userId, wrapperUserReply.userType, wrapperUserReply.properties, wrapperUserReply.labels) +: neighbourUsers
 
           if(neighboursLeft.isEmpty) {
-            sagaNodeReadSideActor ! RetrieveNodesQuery(Map.empty, Map.empty, relevantNodes -- userViewHistory, trendingResp.overallRanking, updatedViews -- userViewHistory, Map.empty, sagaNodeActorResponseMapper)
+            sagaNodeReadSideActor ! RetrieveNodesQuery(None, Map.empty, Map.empty, relevantNodes -- userViewHistory, trendingResp.overallRanking, updatedViews -- userViewHistory, Map.empty, sagaNodeActorResponseMapper)
 
             waitingForFinalNeighbourViewsFilter(referral, updatedNeighbourUsers)
           } else waitingForNeighbourViewsReply(referral, relevantNodes, trendingResp, neighboursLeft, updatedViews, userViewHistory, updatedNeighbourUsers)

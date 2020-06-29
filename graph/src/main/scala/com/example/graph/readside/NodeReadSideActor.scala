@@ -60,6 +60,14 @@ object NodeReadSideActor {
                 if (elemToInsert.tags.isEmpty) null else mapAsJavaMap(elemToInsert.tags),
                 if (elemToInsert.properties.isEmpty) null else mapAsJavaMap(elemToInsert.properties)
               )
+            case elemToRemove: GraphNodeDisabled =>
+              statement.bind(
+                elemToRemove.companyId,
+                elemToRemove.id,
+                "disabled",
+                null,
+                null
+              )
             case _ =>
               throw new RuntimeException("wrong message")
           }
@@ -141,6 +149,7 @@ object NodeReadSideActor {
                   context.self ! NodeInformationUpdate(NodeInfo(value.companyId, value.id, value.nodeType, value.tags, value.properties))
                   ee
                 case ee =>
+                  println(ee)
                   ee
               }
               .via(saveNodeFlow)

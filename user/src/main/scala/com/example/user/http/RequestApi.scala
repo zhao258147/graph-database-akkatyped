@@ -12,6 +12,7 @@ import com.example.user.http.Requests._
 import de.heikoseeberger.akkahttpjson4s.Json4sSupport
 import org.json4s.{DefaultFormats, Formats, native}
 import akka.actor.typed.scaladsl.AskPattern._
+import akka.http.scaladsl.model.StatusCodes
 import com.example.user.Main.{UserGraphRequest, UserMainCommand}
 import com.example.user.query.UserGraphQuery
 import com.example.user.query.UserGraphQuery.UserGraphQueryReply
@@ -108,6 +109,11 @@ object RequestApi extends Json4sSupport {
                       req.userId,
                       UpdateUserCommand(req.userId, req.properties, req.labels, ref)
                     )
+                }.map{
+                  case _: UserCommandSuccess =>
+                    complete(StatusCodes.OK)
+                  case _ =>
+                    complete(StatusCodes.BadRequest)
                 }
               )
             }
@@ -121,6 +127,11 @@ object RequestApi extends Json4sSupport {
                   createCommand.userId,
                   CreateUserCommand(createCommand.userId, createCommand.userType, createCommand.properties, createCommand.labels, ref)
                 )
+              }.map{
+                case _: UserCommandSuccess =>
+                  complete(StatusCodes.OK)
+                case _ =>
+                  complete(StatusCodes.BadRequest)
               }
             )
           }

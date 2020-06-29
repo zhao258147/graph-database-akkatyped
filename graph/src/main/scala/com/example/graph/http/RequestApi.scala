@@ -3,6 +3,8 @@ package com.example.graph.http
 import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.cluster.sharding.typed.ShardingEnvelope
+import akka.cluster.sharding.typed.internal.protobuf.ShardingMessages
+import akka.http.scaladsl.model.{StatusCode, StatusCodes}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.util.Timeout
@@ -173,6 +175,32 @@ object RequestApi extends Json4sSupport {
               }
             }
           } ~
+          pathPrefix("delete") {
+            get {
+              complete(
+                graphCordinator.ask[GraphNodeCommandReply] { ref =>
+                  ShardingEnvelope(nodeId, DisableNodeCommand(nodeId, ref))
+                }.map{
+                  case _: GraphNodeCommandSuccess =>
+                    complete(StatusCodes.OK)
+                  case _ =>
+                    complete(StatusCodes.BadRequest)
+                }
+              )
+            }
+          } ~
+          delete {
+            complete(
+              graphCordinator.ask[GraphNodeCommandReply] { ref =>
+                ShardingEnvelope(nodeId, DisableNodeCommand(nodeId, ref))
+              }.map{
+                case _: GraphNodeCommandSuccess =>
+                  complete(StatusCodes.OK)
+                case _ =>
+                  complete(StatusCodes.BadRequest)
+              }
+            )
+          } ~
           get {
             complete(
               graphCordinator.ask[GraphNodeCommandReply] { ref =>
@@ -185,6 +213,11 @@ object RequestApi extends Json4sSupport {
               complete(
                 graphCordinator.ask[GraphNodeCommandReply] { ref =>
                   ShardingEnvelope(nodeId, UpdateNodeCommand(nodeId, update.tags, update.properties, ref))
+                }.map{
+                  case _: GraphNodeCommandSuccess =>
+                    complete(StatusCodes.OK)
+                  case _ =>
+                    complete(StatusCodes.BadRequest)
                 }
               )
             }
@@ -195,6 +228,11 @@ object RequestApi extends Json4sSupport {
             complete(
               graphCordinator.ask[GraphNodeCommandReply] { ref: ActorRef[GraphNodeCommandReply] =>
                 ShardingEnvelope(createCommand.nodeId, CreateNodeCommand(createCommand.nodeId, createCommand.nodeType, createCommand.companyId, createCommand.tags, createCommand.properties, ref))
+              }.map{
+                case _: GraphNodeCommandSuccess =>
+                  complete(StatusCodes.OK)
+                case _ =>
+                  complete(StatusCodes.BadRequest)
               }
             )
           }

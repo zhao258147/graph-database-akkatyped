@@ -1,4 +1,1 @@
-Set(5) match {
-  case Nil =>
-    printl
-}
+Seq(3,4).slice(1,3)

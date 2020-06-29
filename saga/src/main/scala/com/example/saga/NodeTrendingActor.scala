@@ -1,15 +1,13 @@
 package com.example.saga
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior}
-import com.example.graph.readside.ClickReadSideActor
-import com.example.graph.readside.ClickReadSideActor.{TrendingNodesCommand, TrendingNodesResponse}
 import com.example.saga.readside.SagaNodeReadSideActor
 import com.example.saga.readside.SagaNodeReadSideActor.{RecoWithNodeInfo, RetrieveNodesQuery, SagaNodeReadSideResponse, SagaNodesInfoResponse}
-
+import com.example.saga.readside.SagaTrendingNodesActor._
 object NodeTrendingActor {
   sealed trait NodeTrendingCommand
   case class GetTrendingNodes(replyTo: ActorRef[NodeTrendingReply]) extends NodeTrendingCommand
-  case class WrappedClickActorResponse(trendingResponse: TrendingNodesResponse) extends NodeTrendingCommand
+  case class WrappedClickActorResponse(trendingResponse: TrendingNodes) extends NodeTrendingCommand
   case class WrappedSagaNodeActorResponse(nodesResponse: SagaNodeReadSideResponse) extends NodeTrendingCommand
 
   sealed trait NodeTrendingReply
@@ -17,10 +15,10 @@ object NodeTrendingActor {
   case class NodeBookmarkReqFailed(message: String) extends NodeTrendingReply
 
   def apply(
-    clickReadSideActor: ActorRef[ClickReadSideActor.ClickStatCommands],
+    clickReadSideActor: ActorRef[SagaTrendingNodesCommand],
     sagaNodeReadSideActor: ActorRef[SagaNodeReadSideActor.SagaNodeReadSideCommand]
   ): Behavior[NodeTrendingCommand] = Behaviors.setup { cxt =>
-    val trendingActorResponseMapper: ActorRef[TrendingNodesResponse] =
+    val trendingActorResponseMapper: ActorRef[TrendingNodes] =
       cxt.messageAdapter(rsp => WrappedClickActorResponse(rsp))
 
     val sagaNodeActorResponseMapper: ActorRef[SagaNodeReadSideResponse] =
@@ -29,7 +27,7 @@ object NodeTrendingActor {
     def initial(): Behavior[NodeTrendingCommand] =
       Behaviors.receiveMessage {
         case referral: GetTrendingNodes =>
-          clickReadSideActor ! TrendingNodesCommand(trendingActorResponseMapper)
+          clickReadSideActor ! RetrieveClicksQuery(trendingActorResponseMapper)
           waitingForTrendingNodes(referral)
 
         case x =>
@@ -39,8 +37,8 @@ object NodeTrendingActor {
 
     def waitingForTrendingNodes(referral: GetTrendingNodes): Behavior[NodeTrendingCommand] =
       Behaviors.receiveMessage{
-        case WrappedClickActorResponse(trendingNodes: TrendingNodesResponse) =>
-          sagaNodeReadSideActor ! RetrieveNodesQuery(Map.empty, Map.empty, Map.empty, trendingNodes.overallRanking, Map.empty, Map.empty, sagaNodeActorResponseMapper)
+        case WrappedClickActorResponse(trendingNodes: TrendingNodes) =>
+          sagaNodeReadSideActor ! RetrieveNodesQuery(None, Map.empty, Map.empty, Map.empty, trendingNodes.overallRanking, Map.empty, Map.empty, sagaNodeActorResponseMapper)
 
           waitingForNodeInfo(referral)
 
