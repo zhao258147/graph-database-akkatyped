@@ -218,8 +218,12 @@ object NodeRecommendationActor {
 //          println(nodesResponse)
           val recommended = nodesResponse.edgeWeight.take(4)
           val relevant = nodesResponse.tagMatching ++ nodesResponse.relevant
-          val rand = new Random()
-          val randStart = rand.nextInt(nodesResponse.relevant.size - 4)
+          val randStartRelevant = if(nodesResponse.relevant.size > 5) {
+            val rand = new Random()
+            val randStart = rand.nextInt(nodesResponse.relevant.size - 4)
+            relevant.slice( randStart, randStart + 4)
+          } else nodesResponse.relevant
+
           referral.replyTo ! NodeRecommendationSuccess(
             referral.userId,
             referral.nodeId,
@@ -228,7 +232,7 @@ object NodeRecommendationActor {
             nodeReply.properties,
             userReply.updatedLabels,
             recommended, //nodesResponse.tagMatching
-            relevant.slice( randStart, randStart + 4),
+            randStartRelevant,
             Seq.empty, //nodesResponse.edgeWeight.take(3)
             nodesResponse.trending,
             nodesResponse.trendingByTag,

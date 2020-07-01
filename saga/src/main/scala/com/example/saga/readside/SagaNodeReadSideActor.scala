@@ -66,18 +66,11 @@ object SagaNodeReadSideActor {
 
             val propertyCompanyMap = node.properties.get("company").map{ companyId =>
               val tempCList = nodesByCompany.getOrElse(companyId, Seq.empty)
-              if(tempCList.exists(_.nodeId == node.nodeId))
-                Map(companyId -> tempCList)
-              else
-                Map(companyId -> (node +: tempCList))
+              Map(companyId -> (node +: tempCList.filterNot(_.nodeId == node.nodeId)))
             }
 
             val clist = nodesByCompany.getOrElse(node.company, Seq.empty)
-            val companyList =
-              if(clist.exists(_.nodeId == node.nodeId))
-                clist
-              else
-                node +: clist
+            val companyList = node +: clist.filterNot(_.nodeId == node.nodeId)
 
             val newCompanyMap = propertyCompanyMap.getOrElse(Map.empty) + (node.company -> companyList)
             collectNewNode(nodeMap + (node.nodeId -> node), nodesByCompany ++ newCompanyMap)
