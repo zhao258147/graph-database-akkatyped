@@ -148,7 +148,7 @@ object UserNodeEntity {
     bookmarkedBy: Map[String, BookmarkedBy],
     similarUsers: Map[String, Map[String, Int]],
     viewed: Seq[String],
-    autoReply: Boolean = true,
+    autoReply: Boolean = false,
     numberOfSimilarUsersOpt: Option[Int] = None,
     numberOfViewsToCheckOpt: Option[Int] = None,
     labelWeightFilterOpt: Option[Int] = None,
