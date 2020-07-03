@@ -49,7 +49,9 @@ object SagaTrendingNodesActor {
       createdStream
         .map {
           case ee@EventEnvelope(_, _, _, value: GraphNodeClickUpdated) =>
-            context.self ! NodeClickInfo(value.companyId, value.nodeId, value.tags.keySet, value.ts, value.clicks)
+            if(value.nodeType != "vod"){
+              context.self ! NodeClickInfo(value.companyId, value.nodeId, value.tags.keySet, value.ts, value.clicks)
+            }
             NodeClickInfo(value.companyId, value.nodeId, value.tags.keySet, value.ts, value.clicks)
           case ee =>
             ee
@@ -82,6 +84,7 @@ object SagaTrendingNodesActor {
       def collectNewNode(list: Seq[NodeClickInfo], sortedOverallList: Map[String, Int]): Behavior[SagaTrendingNodesCommand] =
         Behaviors.receiveMessagePartial{
           case click: NodeClickInfo =>
+
             val newList = click +: (if(list.size > 1000) list.take(900) else list)
 
             collectNewNode(newList, calculateOverallList(newList))

@@ -246,9 +246,9 @@ object GraphNodeEntity {
               val ts = System.currentTimeMillis()
               val incrementalClicks = createdState.clicks - createdState.previousClicks + 1
 
-              val edgesCounter: Counter = CinnamonMetrics(context).createCounter("referees", Map("nodeId" -> createdState.nodeId, "nodeType" -> createdState.nodeId, "companyId" -> createdState.companyId))
-              val visitLengthRecorder: Recorder = CinnamonMetrics(context).createRecorder("visitlength", Map("nodeId" -> createdState.nodeId, "nodeType" -> createdState.nodeId, "companyId" -> createdState.companyId))
-              val activeVisitorRecorder: Recorder = CinnamonMetrics(context).createRecorder("activevisitors", Map("nodeId" -> createdState.nodeId, "nodeType" -> createdState.nodeId, "companyId" -> createdState.companyId))
+              val edgesCounter: Counter = CinnamonMetrics(context).createCounter("referees", Map("nodeId" -> createdState.nodeId, "nodeType" -> createdState.nodeType, "companyId" -> createdState.companyId))
+              val visitLengthRecorder: Recorder = CinnamonMetrics(context).createRecorder("visitlength", Map("nodeId" -> createdState.nodeId, "nodeType" -> createdState.nodeType, "companyId" -> createdState.companyId))
+              val activeVisitorRecorder: Recorder = CinnamonMetrics(context).createRecorder("activevisitors", Map("nodeId" -> createdState.nodeId, "nodeType" -> createdState.nodeType, "companyId" -> createdState.companyId))
 
               if(!createdState.outEdges.contains(updateEdge.direction.nodeId)) edgesCounter.increment()
               createdState.activeVisitors.get(updateEdge.userId) foreach { ts =>
@@ -315,14 +315,14 @@ object GraphNodeEntity {
 
               context.log.debug(s"nodeId: ${query.nodeId}, userid: ${query.visitorId}")
               context.log.debug("clickrate + 1")
-              val clickrate: Rate = CinnamonMetrics(context).createRate("clickrate", Map("nodeId" -> createdState.nodeId, "nodeType" -> createdState.nodeId, "companyId" -> createdState.companyId))
+              val clickrate: Rate = CinnamonMetrics(context).createRate("clickrate", Map("nodeId" -> createdState.nodeId, "nodeType" -> createdState.nodeType, "companyId" -> createdState.companyId))
               clickrate.mark()
               if(createdState.uniqueVisitors.contains(query.visitorId)) {
                 context.log.debug("uniquevisitor + 1")
-                val uniquevisitorCounter: Recorder = CinnamonMetrics(context).createRecorder("uniquevisitors", Map("nodeId" -> createdState.nodeId, "nodeType" -> createdState.nodeId, "companyId" -> createdState.companyId))
+                val uniquevisitorCounter: Recorder = CinnamonMetrics(context).createRecorder("uniquevisitors", Map("nodeId" -> createdState.nodeId, "nodeType" -> createdState.nodeType, "companyId" -> createdState.companyId))
                 uniquevisitorCounter.record(createdState.uniqueVisitors.size + 1)
               }
-              val activeVisitorRecorder: Recorder = CinnamonMetrics(context).createRecorder("activevisitors", Map("nodeId" -> createdState.nodeId, "nodeType" -> createdState.nodeId, "companyId" -> createdState.companyId))
+              val activeVisitorRecorder: Recorder = CinnamonMetrics(context).createRecorder("activevisitors", Map("nodeId" -> createdState.nodeId, "nodeType" -> createdState.nodeType, "companyId" -> createdState.companyId))
 
               val edgeQueryResult = RecommendedResult(createdState.nodeId, createdState.nodeType, createdState.tags, createdState.properties, tagMatching, popular, createdState.clicks, createdState.uniqueVisitors.size, createdState.activeVisitors.size, similarUsers)
               val visitorUpdate = GraphNodeVisitorUpdated(query.visitorId, System.currentTimeMillis(), query.visitorLabels)
@@ -483,7 +483,7 @@ object GraphNodeEntity {
             val newTargetEdges = targetEdges + (nodeId -> updatedEdge)
 
             if(!targetEdges.contains(nodeId))
-              CinnamonMetrics(context).createCounter("referrers", Map("nodeId" -> createdState.nodeId, "nodeType" -> createdState.nodeId, "companyId" -> createdState.companyId)).increment()
+              CinnamonMetrics(context).createCounter("referrers", Map("nodeId" -> createdState.nodeId, "nodeType" -> createdState.nodeType, "companyId" -> createdState.companyId)).increment()
 
             createdState.copy(
               inEdges = createdState.inEdges + (edgeType -> newTargetEdges)
