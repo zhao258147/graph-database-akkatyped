@@ -2,42 +2,51 @@ package com.gotin.analytics
 
 import java.util.UUID
 
+import akka.{Done, NotUsed}
+import akka.actor.ActorSystem
 import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
+import akka.actor.typed.{ActorRef, Behavior}
 import akka.cluster.sharding.typed.scaladsl.{ClusterSharding, Entity}
 import akka.cluster.sharding.typed.{ClusterShardingSettings, ShardingEnvelope}
 import akka.cluster.typed.ClusterSingleton
 import akka.http.scaladsl.Http
+import akka.http.scaladsl.model.{ContentType, HttpEntity, HttpMessage, HttpMethods, HttpRequest, MediaTypes}
 import akka.http.scaladsl.server.Route
 import akka.management.cluster.bootstrap.ClusterBootstrap
 import akka.management.scaladsl.AkkaManagement
+import akka.persistence.cassandra.query.scaladsl.CassandraReadJournal
+import akka.persistence.query.{EventEnvelope, NoOffset, PersistenceQuery}
 import akka.persistence.typed.PersistenceId
 import akka.stream.ActorMaterializer
+import akka.stream.scaladsl.{Sink, Source}
 import com.datastax.driver.core.{Cluster, Session}
+import com.example.graph.GraphNodeEntity.{GraphNodeEdgeUpdated, GraphNodeVisitorUpdated}
+import com.example.graph.readside.EventTags
+import com.example.user.UserNodeEntity
+import com.example.user.UserNodeEntity.{BookmarkedBy, UserAutoReplyUpdate, UserBookmarked}
 import com.gotin.analytics.config.AnalyticsConfig
 import com.typesafe.config.ConfigFactory
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+import org.json4s.DefaultFormats
+import org.json4s.native.Serialization.write
 
-import scala.concurrent.ExecutionContextExecutor
+import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContextExecutor, Future}
+import scala.util.Try
 
 object Main extends App {
   val conf = ConfigFactory.load()
   val config = conf.as[AnalyticsConfig]("AnalyticsConfig")
-
-  implicit val userParams = config.userEntityParams
-  implicit val nodeParams = config.nodeEntityParams
+  implicit val formats = DefaultFormats
 
   import akka.actor.typed.scaladsl.adapter._
 
-  implicit val typedSystem: ActorSystem[QueryCommand] = ActorSystem(Main(), "RayDemo")
-  implicit val classSystem = typedSystem.toClassic
+//  implicit val typedSystem: ActorSystem[AnalyticsQueryCommand] = ActorSystem(Main(), "RayDemo")
+implicit val system: ActorSystem = ActorSystem("RayDemo", conf)
+
+//  implicit val classSystem = typedSystem.toClassic
   implicit val materializer: ActorMaterializer = ActorMaterializer()
-
-  implicit val ec: ExecutionContextExecutor = typedSystem.executionContext
-
-  AkkaManagement(classSystem).start()
-  ClusterBootstrap(classSystem).start()
 
   implicit val session: Session = Cluster.builder
     .addContactPoint(config.cassandraConfig.contactPoints)
@@ -46,122 +55,70 @@ object Main extends App {
     .build
     .connect()
 
-  val sharding = ClusterSharding(typedSystem)
+  sealed trait AnalyticsQueryCommand
 
-  val settings = ClusterShardingSettings(typedSystem)
-
-  val graphShardRegion: ActorRef[ShardingEnvelope[GraphNodeCommand[GraphNodeCommandReply]]] =
-    sharding.init(Entity(GraphNodeEntity.TypeKey)(
-      createBehavior = entityContext =>
-        GraphNodeEntity.nodeEntityBehaviour(
-          PersistenceId(entityContext.entityTypeKey.name, entityContext.entityId)
-        )
-    ).withRole("graph"))
-
-  val userShardRegion: ActorRef[ShardingEnvelope[UserCommand[UserReply]]] =
-    sharding.init(Entity(UserNodeEntity.TypeKey)(
-      createBehavior = entityContext =>
-        UserNodeEntity.userEntityBehaviour(
-          PersistenceId(entityContext.entityTypeKey.name, entityContext.entityId)
-        )
-    ).withRole("user"))
-
-  val offsetManagement = new OffsetManagement
-
-  val singletonManager = ClusterSingleton(typedSystem)
-//  val nodeReadSideActor = singletonManager.init(
-//    SingletonActor(
-//      Behaviors.supervise(
-//        NodeReadSideActor.ReadSideActorBehaviour(
-//          config.readSideConfig,
-//          offsetManagement
-//        )
-//      ).onFailure[Exception](SupervisorStrategy.restart), "NodeReadSide"))
+//  case class NodeVisit(persistenceId: String, visitorId: String, ts: Long, visitorLabels: Map[String, Int])
+//  case class NodeReferral(persistenceId: String, visitorId: String, toNode: String)
 //
-//  val clickReadSideActor: ActorRef[ClickReadSideActor.ClickStatCommands] = singletonManager.init(
-//    SingletonActor(
-//      Behaviors.supervise(
-//        ClickReadSideActor.behaviour(
-//          config.readSideConfig,
-//          offsetManagement
+  val queries = PersistenceQuery(system).readJournalFor[CassandraReadJournal](CassandraReadJournal.Identifier)
+//  val nodeStream: Source[EventEnvelope, NotUsed] = queries.eventsByTag(EventTags.CommonEvtTag, NoOffset)
+//  nodeStream
+//    .map {
+//      case ee@EventEnvelope(_, persistenceId: String, _, value: GraphNodeEdgeUpdated) =>
+//        println(persistenceId)
+//        println(value)
+////        val nv = NodeVisit(persistenceId, value.visitorId, value.ts, value.visitorLabels)
+//        val nv = NodeReferral(persistenceId, value.visitorId, value.direction.nodeId)
+//        val data =
+//          s"""
+//             |{
+//             | "index" : "nodereferral",
+//             | "data" : ${write(nv)}
+//             |}
+//        """.stripMargin
+//        val post = HttpRequest(
+//          method = HttpMethods.POST,
+//          uri = config.searchURL,
+//          entity = HttpEntity(ContentType(MediaTypes.`application/json`), data)
 //        )
-//      ).onFailure[Exception](SupervisorStrategy.restart), "ClickReadSide"))
+//        println(data)
+//        val rsp = Http().singleRequest(post)
+//        Try {
+//          val s: HttpMessage = Await.result(rsp, 50000 millis)
+//          println(s)
+//        }
+//        ee
+//      case ee =>
+//        ee
+//    }
+//    .runWith(Sink.ignore)
 
-  sealed trait QueryCommand
-  case class NodeRecoCmd(nodeId: NodeId, userId: UserId, userLabels: Map[String, Int], bias: NodeVisitBias, replyTo: ActorRef[NodeRecommendationReply]) extends QueryCommand
-  case class HomePageRecoCmd(userId: UserId, userLabels: Map[String, Int], replyTo: ActorRef[HomePageRecommendationReply]) extends QueryCommand
-  case class BookmarkUserCmd(userId: UserId, targetUserId: UserId, replyTo: ActorRef[UserBookmarkReply]) extends QueryCommand
-  case class BookmarkNodeCmd(nodeId: NodeId, userId: UserId, replyTo: ActorRef[NodeBookmarkReply]) extends QueryCommand
-  case class TrendingNodesCmd(replyTo: ActorRef[NodeTrendingReply]) extends QueryCommand
-  case class GetUserBookmarksCmd(userId: String, replyTo: ActorRef[GetUserBookmarksReply]) extends QueryCommand
-  case class GetUserBookmarkedByCmd(userId: String, replyTo: ActorRef[GetUserBookmarkedByReply]) extends QueryCommand
-  case class GetAllUserBookmarksCmd(userId: String, replyTo: ActorRef[GetAllUserBookmarksReply]) extends QueryCommand
-  case class GetCompanyContentsCmd(companyName: String, number: Int, replyTo: ActorRef[SagaNodeReadSideResponse]) extends QueryCommand
-//  case class RemoveBookmarkUserCommand(userId: UserId, targetNodeId: UserId, replyTo: ActorRef[UserBookmarkReply]) extends SagaCommand
-//  case class RemoveBookmarkNodeCommand(nodeId: NodeId, userId: UserId, replyTo: ActorRef[NodeBookmarkReply]) extends SagaCommand
-
-
-  def apply(): Behavior[QueryCommand] = Behaviors.setup{ context =>
-    val sagaNodeReadSideActor: ActorRef[SagaNodeReadSideActor.SagaNodeReadSideCommand] = context.spawn(SagaNodeReadSideActor(nodeParams.numberOfRecommendationsToTake), "LocalNodeReadSideActor")
-    val sagaTrendingActor: ActorRef[SagaTrendingNodesActor.SagaTrendingNodesCommand] = context.spawn(SagaTrendingNodesActor(), "LocalTrendingActor")
-
-    Behaviors.receiveMessage{
-      case referral: NodeRecoCmd =>
-        val sagaActor = context.spawn(NodeRecommendationActor(graphShardRegion, userShardRegion, sagaTrendingActor, sagaNodeReadSideActor), UUID.randomUUID().toString)
-        sagaActor ! NodeReferral(referral.nodeId, referral.userId, referral.userLabels, referral.bias, referral.replyTo)
-        Behaviors.same
-
-      case home: HomePageRecoCmd =>
-        println("main")
-        println(home)
-        val sagaActor = context.spawn(HomePageRecommendationActor(userShardRegion, sagaTrendingActor, sagaNodeReadSideActor), UUID.randomUUID().toString)
-        sagaActor ! HomePageRecommendation(home.userId, home.userLabels, home.replyTo)
-        Behaviors.same
-
-      case bookmarkUser: BookmarkUserCmd =>
-        val sagaActor = context.spawn(UserBookmarkActor(userShardRegion), UUID.randomUUID().toString)
-        sagaActor ! BookmarkUser(bookmarkUser.userId, bookmarkUser.targetUserId, bookmarkUser.replyTo)
-        Behaviors.same
-
-      case bookmarkNode: BookmarkNodeCmd =>
-        val sagaActor = context.spawn(NodeBookmarkActor(graphShardRegion, userShardRegion), UUID.randomUUID().toString)
-        sagaActor ! BookmarkNode(bookmarkNode.nodeId, bookmarkNode.userId, bookmarkNode.replyTo)
-        Behaviors.same
-
-      case TrendingNodesCmd(replyTo) =>
-        val trendingActor = context.spawn(NodeTrendingActor(sagaTrendingActor, sagaNodeReadSideActor), UUID.randomUUID().toString)
-        trendingActor ! GetTrendingNodes(replyTo)
-        Behaviors.same
-
-      case GetUserBookmarksCmd(userId, replyTo) =>
-        val getBookmarkedActor = context.spawn(GetUserBookmarksActor(userShardRegion), UUID.randomUUID().toString)
-        getBookmarkedActor ! GetBookmarksWithUserInfo(userId, replyTo)
-        Behaviors.same
-
-      case GetUserBookmarkedByCmd(userId, replyTo) =>
-        val getBookmarkedByActor = context.spawn(GetUserBookmarkedByActor(userShardRegion), UUID.randomUUID().toString)
-        getBookmarkedByActor ! GetBookmarkedByWithUserInfo(userId, replyTo)
-        Behaviors.same
-
-      case GetAllUserBookmarksCmd(userId, replyTo) =>
-        val getAllBookmarksActor = context.spawn(GetAllUserBookmarksActor(userShardRegion), UUID.randomUUID().toString)
-        getAllBookmarksActor ! GetAllBookmarksWithUserInfo(userId, replyTo)
-        Behaviors.same
-
-      case GetCompanyContentsCmd(companyName, number, replyTo) =>
-        sagaNodeReadSideActor ! RetrieveCompanyNodesQuery(companyName, number, replyTo)
-        Behaviors.same
+  val userStream: Source[EventEnvelope, NotUsed] = queries.eventsByTag(UserNodeEntity.UserEventDefaultTagName, NoOffset)
+  userStream
+    .map {
+      case ee@EventEnvelope(_, _, _, value: BookmarkedBy) =>
+        println(value)
+        val data =
+          s"""
+             |{
+             | "index" : "userbookmark",
+             | "data" : ${write(value)}
+             |}
+        """.stripMargin
+        val post = HttpRequest(
+          method = HttpMethods.POST,
+          uri = config.searchURL,
+          entity = HttpEntity(ContentType(MediaTypes.`application/json`), data)
+        )
+        println(data)
+        val rsp = Http().singleRequest(post)
+        Try {
+          val s: HttpMessage = Await.result(rsp, 50000 millis)
+          println(s)
+        }
+        ee
+      case ee =>
+        ee
     }
-  }
-
-  val route: Route = RequestApi.route(graphShardRegion, userShardRegion)
-
-  private val cors = new CORSHandler {}
-
-  Http().bindAndHandle(
-    cors.corsHandler(route),
-    config.http.interface,
-    config.http.port
-  )
-
+    .runWith(Sink.ignore)
 }

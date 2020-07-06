@@ -1,0 +1,377 @@
+[info] Loading settings for project graph-database-akkatyped-build from gatling.sbt,lightbend.sbt,plugins.sbt ...
+[info] Loading project definition from /mnt/c/Users/zhao2/Documents/GitHub/graph-database-akkatyped/project
+[info] Loading settings for project graph-database-akkatyped from build.sbt ...
+[info] Set current project to AkkaGraphDB (in build file:/mnt/c/Users/zhao2/Documents/GitHub/graph-database-akkatyped/)
+[info] running (fork) com.gotin.analytics.Main 
+[info] [INFO] [07/03/2020 20:10:05.042] [Cinnamon] Agent version 2.13.3
+[info] [INFO] [07/03/2020 20:10:05.270] [Cinnamon] Agent found Scala version: 2.12.11
+[info] [INFO] [07/03/2020 20:10:05.277] [Cinnamon] Agent found Scala Futures version: 2.12.11
+[info] [INFO] [07/03/2020 20:10:05.384] [Cinnamon] Agent found Akka Actor version: 2.6.4
+[info] [INFO] [07/03/2020 20:10:05.468] [Cinnamon] Agent found Akka version: 2.6.4
+[info] [INFO] [07/03/2020 20:10:05.474] [Cinnamon] Agent found Akka Streams version: 2.6.4
+[info] [INFO] [07/03/2020 20:10:05.522] [Cinnamon] Agent found Akka Persistence version: 2.6.4
+[info] [INFO] [07/03/2020 20:10:05.726] [Cinnamon] Agent found Java Futures version: 1.8.0_252
+[info] [INFO] [07/03/2020 20:10:06.644] [Cinnamon] Agent found Akka Cluster version: 2.6.4
+[info] [INFO] [07/03/2020 20:10:06.647] [Cinnamon] Agent found Akka Remote version: 2.6.4
+[info] 20:10:07,111 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+[info] 20:10:07,111 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback.groovy]
+[info] 20:10:07,111 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/tmp/sbt_9566776d/job-1/target/fa71cc96/a26f50a9/analytics_2.12-0.0.0.jar!/logback.xml]
+[info] 20:10:07,117 |-WARN in ch.qos.logback.classic.LoggerContext[default] - Resource [logback.xml] occurs multiple times on the classpath.
+[info] 20:10:07,117 |-WARN in ch.qos.logback.classic.LoggerContext[default] - Resource [logback.xml] occurs at [jar:file:/tmp/sbt_9566776d/job-1/target/fa71cc96/a26f50a9/analytics_2.12-0.0.0.jar!/logback.xml]
+[info] 20:10:07,117 |-WARN in ch.qos.logback.classic.LoggerContext[default] - Resource [logback.xml] occurs at [jar:file:/tmp/sbt_9566776d/target/f1dd858e/d18cb737/graph_2.12-0.6.21.jar!/logback.xml]
+[info] 20:10:07,117 |-WARN in ch.qos.logback.classic.LoggerContext[default] - Resource [logback.xml] occurs at [jar:file:/tmp/sbt_9566776d/target/b8db09b6/dc4f68e0/user_2.12-0.6.23.jar!/logback.xml]
+[info] 20:10:07,128 |-INFO in ch.qos.logback.core.joran.spi.ConfigurationWatchList@1d18f19c - URL [jar:file:/tmp/sbt_9566776d/job-1/target/fa71cc96/a26f50a9/analytics_2.12-0.0.0.jar!/logback.xml] is not of type file
+[info] 20:10:07,169 |-INFO in ch.qos.logback.classic.joran.action.ConfigurationAction - debug attribute not set
+[info] 20:10:07,170 |-INFO in ch.qos.logback.core.joran.action.AppenderAction - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+[info] 20:10:07,176 |-INFO in ch.qos.logback.core.joran.action.AppenderAction - Naming appender as [STDOUT]
+[info] 20:10:07,181 |-INFO in ch.qos.logback.core.joran.action.NestedComplexPropertyIA - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+[info] 20:10:07,198 |-INFO in ch.qos.logback.core.joran.action.AppenderAction - About to instantiate appender of type [ch.qos.logback.classic.AsyncAppender]
+[info] 20:10:07,200 |-INFO in ch.qos.logback.core.joran.action.AppenderAction - Naming appender as [ASYNCSTDOUT]
+[info] 20:10:07,200 |-INFO in ch.qos.logback.core.joran.action.AppenderRefAction - Attaching appender named [STDOUT] to ch.qos.logback.classic.AsyncAppender[ASYNCSTDOUT]
+[info] 20:10:07,200 |-INFO in ch.qos.logback.classic.AsyncAppender[ASYNCSTDOUT] - Attaching appender named [STDOUT] to AsyncAppender.
+[info] 20:10:07,200 |-INFO in ch.qos.logback.classic.AsyncAppender[ASYNCSTDOUT] - Setting discardingThreshold to 51
+[info] 20:10:07,201 |-INFO in ch.qos.logback.classic.joran.action.LoggerAction - Setting level of logger [play] to INFO
+[info] 20:10:07,201 |-INFO in ch.qos.logback.classic.joran.action.LoggerAction - Setting level of logger [akka] to INFO
+[info] 20:10:07,201 |-INFO in ch.qos.logback.classic.joran.action.LoggerAction - Setting level of logger [org.apache.cassandra] to INFO
+[info] 20:10:07,201 |-INFO in ch.qos.logback.classic.joran.action.LoggerAction - Setting level of logger [com.datastax.driver] to INFO
+[info] 20:10:07,201 |-INFO in ch.qos.logback.classic.joran.action.LoggerAction - Setting level of logger [org.apache.kafka] to INFO
+[info] 20:10:07,201 |-INFO in ch.qos.logback.classic.joran.action.RootLoggerAction - Setting level of ROOT logger to DEBUG
+[info] 20:10:07,201 |-INFO in ch.qos.logback.core.joran.action.AppenderRefAction - Attaching appender named [ASYNCSTDOUT] to Logger[ROOT]
+[info] 20:10:07,201 |-INFO in ch.qos.logback.classic.joran.action.ConfigurationAction - End of configuration.
+[info] 20:10:07,202 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@60b05d7a - Registering current configuration as safe fallback point
+[info] 2020-07-04T00:10:07.204Z akka.event.slf4j.Slf4jLogger [] - Slf4jLogger started
+[info] 2020-07-04T00:10:07.565Z akka.remote.artery.tcp.ArteryTcpTransport [akkaAddress=akka://RayDemo@127.0.0.1:25524, sourceThread=main, akkaSource=ArteryTcpTransport(akka://RayDemo), sourceActorSystem=RayDemo, akkaTimestamp=00:10:07.563UTC] - Remoting started with transport [Artery tcp]; listening on address [akka://RayDemo@127.0.0.1:25524] with UID [-5143654386675091405]
+[info] [INFO] [07/03/2020 20:10:07.580] [Cinnamon] Agent found Akka Cluster Sharding version: 2.6.4
+[info] 2020-07-04T00:10:07.585Z akka.cluster.Cluster [akkaAddress=akka://RayDemo@127.0.0.1:25524, sourceThread=main, akkaSource=Cluster(akka://RayDemo), sourceActorSystem=RayDemo, akkaTimestamp=00:10:07.585UTC] - Cluster Node [akka://RayDemo@127.0.0.1:25524] - Starting up, Akka version [2.6.4] ...
+[info] 2020-07-04T00:10:07.680Z akka.cluster.Cluster [akkaAddress=akka://RayDemo@127.0.0.1:25524, sourceThread=main, akkaSource=Cluster(akka://RayDemo), sourceActorSystem=RayDemo, akkaTimestamp=00:10:07.680UTC] - Cluster Node [akka://RayDemo@127.0.0.1:25524] - Registered cluster JMX MBean [akka:type=Cluster]
+[info] 2020-07-04T00:10:07.680Z akka.cluster.Cluster [akkaAddress=akka://RayDemo@127.0.0.1:25524, sourceThread=main, akkaSource=Cluster(akka://RayDemo), sourceActorSystem=RayDemo, akkaTimestamp=00:10:07.680UTC] - Cluster Node [akka://RayDemo@127.0.0.1:25524] - Started up successfully
+[info] [INFO] [07/03/2020 20:10:07.726] [Cinnamon] Agent found Akka Actor Typed version: 2.6.4
+[info] 2020-07-04T00:10:07.728Z akka.cluster.Cluster [akkaAddress=akka://RayDemo@127.0.0.1:25524, sourceThread=RayDemo-akka.actor.internal-dispatcher-4, akkaSource=Cluster(akka://RayDemo), sourceActorSystem=RayDemo, akkaTimestamp=00:10:07.713UTC] - Cluster Node [akka://RayDemo@127.0.0.1:25524] - No downing-provider-class configured, manual cluster downing required, see https://doc.akka.io/docs/akka/current/typed/cluster.html#downing
+[info] 2020-07-04T00:10:07.743Z akka.cluster.Cluster [akkaRemoteAddressUid=-5143654386675091405, akkaAddress=akka://RayDemo@127.0.0.1:25524, sourceThread=RayDemo-akka.actor.internal-dispatcher-4, akkaSource=Cluster(akka://RayDemo), sourceActorSystem=RayDemo, akkaRemoteAddress=akka://RayDemo@127.0.0.1:25524, akkaTimestamp=00:10:07.736UTC, akkaMemberStatus=Joining] - Cluster Node [akka://RayDemo@127.0.0.1:25524] - Node [akka://RayDemo@127.0.0.1:25524] is JOINING itself (with roles [saga, dc-default]) and forming new cluster
+[info] 2020-07-04T00:10:07.743Z akka.cluster.Cluster [akkaAddress=akka://RayDemo@127.0.0.1:25524, sourceThread=RayDemo-akka.actor.internal-dispatcher-4, akkaSource=Cluster(akka://RayDemo), sourceActorSystem=RayDemo, akkaTimestamp=00:10:07.739UTC] - Cluster Node [akka://RayDemo@127.0.0.1:25524] - is the new leader among reachable nodes (more leaders may exist)
+[info] 2020-07-04T00:10:07.761Z akka.cluster.Cluster [akkaRemoteAddressUid=-5143654386675091405, akkaAddress=akka://RayDemo@127.0.0.1:25524, sourceThread=RayDemo-akka.actor.internal-dispatcher-4, akkaSource=Cluster(akka://RayDemo), sourceActorSystem=RayDemo, akkaRemoteAddress=akka://RayDemo@127.0.0.1:25524, akkaTimestamp=00:10:07.756UTC, akkaMemberStatus=Up] - Cluster Node [akka://RayDemo@127.0.0.1:25524] - Leader is moving node [akka://RayDemo@127.0.0.1:25524] to [Up]
+[info] [INFO] [07/03/2020 20:10:08.187] [Cinnamon] Agent found Akka Cluster Tools version: 2.6.4
+[info] 2020-07-04T00:10:08.402Z com.datastax.driver.core [] - DataStax Java driver 3.7.2 for Apache Cassandra
+[info] 2020-07-04T00:10:08.410Z com.datastax.driver.core.GuavaCompatibility [] - Detected Guava >= 19 in the classpath, using modern compatibility layer
+[info] 2020-07-04T00:10:08.758Z com.datastax.driver.core.ClockFactory [] - Using native clock to generate timestamps.
+[info] 2020-07-04T00:10:08.830Z io.netty.util.internal.logging.InternalLoggerFactory [] - Using SLF4J as the default logging framework
+[info] 2020-07-04T00:10:08.844Z io.netty.util.internal.PlatformDependent0 [] - -Dio.netty.noUnsafe: false
+[info] 2020-07-04T00:10:08.845Z io.netty.util.internal.PlatformDependent0 [] - Java version: 8
+[info] 2020-07-04T00:10:08.846Z io.netty.util.internal.PlatformDependent0 [] - sun.misc.Unsafe.theUnsafe: available
+[info] 2020-07-04T00:10:08.846Z io.netty.util.internal.PlatformDependent0 [] - sun.misc.Unsafe.copyMemory: available
+[info] 2020-07-04T00:10:08.846Z io.netty.util.internal.PlatformDependent0 [] - java.nio.Buffer.address: available
+[info] 2020-07-04T00:10:08.847Z io.netty.util.internal.PlatformDependent0 [] - direct buffer constructor: available
+[info] 2020-07-04T00:10:08.847Z io.netty.util.internal.PlatformDependent0 [] - java.nio.Bits.unaligned: available, true
+[info] 2020-07-04T00:10:08.847Z io.netty.util.internal.PlatformDependent0 [] - jdk.internal.misc.Unsafe.allocateUninitializedArray(int): unavailable prior to Java9
+[info] 2020-07-04T00:10:08.847Z io.netty.util.internal.PlatformDependent0 [] - java.nio.DirectByteBuffer.<init>(long, int): available
+[info] 2020-07-04T00:10:08.847Z io.netty.util.internal.PlatformDependent [] - sun.misc.Unsafe: available
+[info] 2020-07-04T00:10:08.847Z io.netty.util.internal.PlatformDependent [] - -Dio.netty.tmpdir: /tmp (java.io.tmpdir)
+[info] 2020-07-04T00:10:08.848Z io.netty.util.internal.PlatformDependent [] - -Dio.netty.bitMode: 64 (sun.arch.data.model)
+[info] 2020-07-04T00:10:08.848Z io.netty.util.internal.PlatformDependent [] - -Dio.netty.noPreferDirect: false
+[info] 2020-07-04T00:10:08.848Z io.netty.util.internal.PlatformDependent [] - -Dio.netty.maxDirectMemory: 3808428032 bytes
+[info] 2020-07-04T00:10:08.848Z io.netty.util.internal.PlatformDependent [] - -Dio.netty.uninitializedArrayAllocationThreshold: -1
+[info] 2020-07-04T00:10:08.849Z io.netty.util.internal.CleanerJava6 [] - java.nio.ByteBuffer.cleaner(): available
+[info] 2020-07-04T00:10:08.853Z com.datastax.driver.core.NettyUtil [] - Did not find Netty's native epoll transport in the classpath, defaulting to NIO.
+[info] 2020-07-04T00:10:08.856Z io.netty.channel.MultithreadEventLoopGroup [] - -Dio.netty.eventLoopThreads: 8
+[info] 2020-07-04T00:10:08.863Z io.netty.channel.nio.NioEventLoop [] - -Dio.netty.noKeySetOptimization: false
+[info] 2020-07-04T00:10:08.863Z io.netty.channel.nio.NioEventLoop [] - -Dio.netty.selectorAutoRebuildThreshold: 512
+[info] 2020-07-04T00:10:08.869Z io.netty.util.internal.PlatformDependent [] - org.jctools-core.MpscChunkedArrayQueue: available
+[info] 2020-07-04T00:10:08.879Z io.netty.util.ResourceLeakDetector [] - -Dio.netty.leakDetection.level: simple
+[info] 2020-07-04T00:10:08.879Z io.netty.util.ResourceLeakDetector [] - -Dio.netty.leakDetection.targetRecords: 4
+[info] 2020-07-04T00:10:08.880Z io.netty.util.ResourceLeakDetectorFactory [] - Loaded default ResourceLeakDetector: io.netty.util.ResourceLeakDetector@43cb5f38
+[info] 2020-07-04T00:10:08.932Z io.netty.util.internal.InternalThreadLocalMap [] - -Dio.netty.threadLocalMap.stringBuilder.initialSize: 1024
+[info] 2020-07-04T00:10:08.932Z io.netty.util.internal.InternalThreadLocalMap [] - -Dio.netty.threadLocalMap.stringBuilder.maxSize: 4096
+[info] 2020-07-04T00:10:08.952Z io.netty.buffer.PooledByteBufAllocator [] - -Dio.netty.allocator.numHeapArenas: 8
+[info] 2020-07-04T00:10:08.952Z io.netty.buffer.PooledByteBufAllocator [] - -Dio.netty.allocator.numDirectArenas: 8
+[info] 2020-07-04T00:10:08.952Z io.netty.buffer.PooledByteBufAllocator [] - -Dio.netty.allocator.pageSize: 8192
+[info] 2020-07-04T00:10:08.952Z io.netty.buffer.PooledByteBufAllocator [] - -Dio.netty.allocator.maxOrder: 11
+[info] 2020-07-04T00:10:08.952Z io.netty.buffer.PooledByteBufAllocator [] - -Dio.netty.allocator.chunkSize: 16777216
+[info] 2020-07-04T00:10:08.952Z io.netty.buffer.PooledByteBufAllocator [] - -Dio.netty.allocator.tinyCacheSize: 512
+[info] 2020-07-04T00:10:08.952Z io.netty.buffer.PooledByteBufAllocator [] - -Dio.netty.allocator.smallCacheSize: 256
+[info] 2020-07-04T00:10:08.952Z io.netty.buffer.PooledByteBufAllocator [] - -Dio.netty.allocator.normalCacheSize: 64
+[info] 2020-07-04T00:10:08.952Z io.netty.buffer.PooledByteBufAllocator [] - -Dio.netty.allocator.maxCachedBufferCapacity: 32768
+[info] 2020-07-04T00:10:08.952Z io.netty.buffer.PooledByteBufAllocator [] - -Dio.netty.allocator.cacheTrimInterval: 8192
+[info] 2020-07-04T00:10:08.952Z io.netty.buffer.PooledByteBufAllocator [] - -Dio.netty.allocator.useCacheForAllThreads: true
+[info] 2020-07-04T00:10:09.008Z io.netty.buffer.ByteBufUtil [] - -Dio.netty.allocator.type: unpooled
+[info] 2020-07-04T00:10:09.008Z io.netty.buffer.ByteBufUtil [] - -Dio.netty.threadLocalDirectBufferSize: 65536
+[info] 2020-07-04T00:10:09.008Z io.netty.buffer.ByteBufUtil [] - -Dio.netty.maxThreadLocalCharBufferSize: 16384
+[info] 2020-07-04T00:10:09.456Z io.netty.util.Recycler [] - -Dio.netty.recycler.maxCapacity.default: 32768
+[info] 2020-07-04T00:10:09.456Z io.netty.util.Recycler [] - -Dio.netty.recycler.maxSharedCapacityFactor: 2
+[info] 2020-07-04T00:10:09.456Z io.netty.util.Recycler [] - -Dio.netty.recycler.linkCapacity: 16
+[info] 2020-07-04T00:10:09.456Z io.netty.util.Recycler [] - -Dio.netty.recycler.ratio: 8
+[info] 2020-07-04T00:10:09.464Z io.netty.buffer.AbstractByteBuf [] - -Dio.netty.buffer.bytebuf.checkAccessible: true
+[info] 2020-07-04T00:10:09.464Z io.netty.util.ResourceLeakDetectorFactory [] - Loaded default ResourceLeakDetector: io.netty.util.ResourceLeakDetector@213847ff
+[info] 2020-07-04T00:10:12.401Z com.datastax.driver.core.policies.DCAwareRoundRobinPolicy [] - Using data-center name 'cn-hangzhou-g' for DCAwareRoundRobinPolicy (if this is incorrect, please provide the correct datacenter name with DCAwareRoundRobinPolicy constructor)
+[info] 2020-07-04T00:10:12.402Z com.datastax.driver.core.Cluster [] - New Cassandra host /192.168.2.145:9042 added
+[info] 2020-07-04T00:10:12.402Z com.datastax.driver.core.Cluster [] - New Cassandra host /192.168.2.146:9042 added
+[info] 2020-07-04T00:10:12.402Z com.datastax.driver.core.Cluster [] - New Cassandra host cds-proxy-pub-bp1klva0yqb61d2z-1-core-002.cassandra.rds.aliyuncs.com/47.110.202.17:9042 added
+[info] 2020-07-04T00:10:17.447Z com.datastax.driver.core.HostConnectionPool [] - Error creating connection to /192.168.2.146:9042
+[info] com.datastax.driver.core.exceptions.TransportException: [/192.168.2.146:9042] Cannot connect
+[info] 	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:224)
+[info] 	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:194)
+[info] 	at io.netty.util.concurrent.DefaultPromise.notifyListener0(DefaultPromise.java:512)
+[info] 	at io.netty.util.concurrent.DefaultPromise.notifyListeners0(DefaultPromise.java:505)
+[info] 	at io.netty.util.concurrent.DefaultPromise.notifyListenersNow(DefaultPromise.java:484)
+[info] 	at io.netty.util.concurrent.DefaultPromise.notifyListeners(DefaultPromise.java:425)
+[info] 	at io.netty.util.concurrent.DefaultPromise.tryFailure(DefaultPromise.java:122)
+[info] 	at io.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:220)
+[info] 	at io.netty.util.concurrent.PromiseTask$RunnableAdapter.call(PromiseTask.java:38)
+[info] 	at io.netty.util.concurrent.ScheduledFutureTask.run(ScheduledFutureTask.java:120)
+[info] 	at io.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:399)
+[info] 	at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:464)
+[info] 	at io.netty.util.concurrent.SingleThreadEventExecutor$2.run(SingleThreadEventExecutor.java:131)
+[info] 	at io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+[info] 	at java.lang.Thread.run(Thread.java:748)
+[info] Caused by: io.netty.channel.ConnectTimeoutException: connection timed out: /192.168.2.146:9042
+[info] 	at io.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:218)
+[info] 	... 7 common frames omitted
+[info] 2020-07-04T00:10:17.447Z com.datastax.driver.core.HostConnectionPool [] - Error creating connection to /192.168.2.145:9042
+[info] com.datastax.driver.core.exceptions.TransportException: [/192.168.2.145:9042] Cannot connect
+[info] 	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:224)
+[info] 	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:194)
+[info] 	at io.netty.util.concurrent.DefaultPromise.notifyListener0(DefaultPromise.java:512)
+[info] 	at io.netty.util.concurrent.DefaultPromise.notifyListeners0(DefaultPromise.java:505)
+[info] 	at io.netty.util.concurrent.DefaultPromise.notifyListenersNow(DefaultPromise.java:484)
+[info] 	at io.netty.util.concurrent.DefaultPromise.notifyListeners(DefaultPromise.java:425)
+[info] 	at io.netty.util.concurrent.DefaultPromise.tryFailure(DefaultPromise.java:122)
+[info] 	at io.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:220)
+[info] 	at io.netty.util.concurrent.PromiseTask$RunnableAdapter.call(PromiseTask.java:38)
+[info] 	at io.netty.util.concurrent.ScheduledFutureTask.run(ScheduledFutureTask.java:120)
+[info] 	at io.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:399)
+[info] 	at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:464)
+[info] 	at io.netty.util.concurrent.SingleThreadEventExecutor$2.run(SingleThreadEventExecutor.java:131)
+[info] 	at io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+[info] 	at java.lang.Thread.run(Thread.java:748)
+[info] Caused by: io.netty.channel.ConnectTimeoutException: connection timed out: /192.168.2.145:9042
+[info] 	at io.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:218)
+[info] 	... 7 common frames omitted
+[info] 2020-07-04T00:10:17.448Z com.datastax.driver.core.Session [] - Error creating pool to /192.168.2.146:9042
+[info] com.datastax.driver.core.exceptions.ConnectionException: [/192.168.2.146:9042] Pool was closed during initialization
+[info] 	at com.datastax.driver.core.HostConnectionPool$2.onSuccess(HostConnectionPool.java:173)
+[info] 	at com.datastax.driver.core.HostConnectionPool$2.onSuccess(HostConnectionPool.java:158)
+[info] 	at com.google.common.util.concurrent.Futures$6.run(Futures.java:1773)
+[info] 	at com.google.common.util.concurrent.MoreExecutors$DirectExecutor.execute(MoreExecutors.java:456)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.executeListener(AbstractFuture.java:817)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.complete(AbstractFuture.java:753)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.set(AbstractFuture.java:613)
+[info] 	at com.google.common.util.concurrent.CollectionFuture$CollectionFutureRunningState.handleAllCompleted(CollectionFuture.java:76)
+[info] 	at com.google.common.util.concurrent.AggregateFuture$RunningState.processCompleted(AggregateFuture.java:255)
+[info] 	at com.google.common.util.concurrent.AggregateFuture$RunningState.decrementCountAndMaybeComplete(AggregateFuture.java:242)
+[info] 	at com.google.common.util.concurrent.AggregateFuture$RunningState.access$300(AggregateFuture.java:91)
+[info] 	at com.google.common.util.concurrent.AggregateFuture$RunningState$1.run(AggregateFuture.java:146)
+[info] 	at com.google.common.util.concurrent.MoreExecutors$DirectExecutor.execute(MoreExecutors.java:456)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.executeListener(AbstractFuture.java:817)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.complete(AbstractFuture.java:753)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.completeWithFuture(AbstractFuture.java:730)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.setFuture(AbstractFuture.java:666)
+[info] 	at com.google.common.util.concurrent.Futures$AsyncCatchingFuture.doFallback(Futures.java:826)
+[info] 	at com.google.common.util.concurrent.Futures$AsyncCatchingFuture.doFallback(Futures.java:813)
+[info] 	at com.google.common.util.concurrent.Futures$AbstractCatchingFuture.run(Futures.java:789)
+[info] 	at com.google.common.util.concurrent.MoreExecutors$DirectExecutor.execute(MoreExecutors.java:456)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.executeListener(AbstractFuture.java:817)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.complete(AbstractFuture.java:753)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.completeWithFuture(AbstractFuture.java:730)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.setFuture(AbstractFuture.java:666)
+[info] 	at com.google.common.util.concurrent.Futures$AsyncCatchingFuture.doFallback(Futures.java:826)
+[info] 	at com.google.common.util.concurrent.Futures$AsyncCatchingFuture.doFallback(Futures.java:813)
+[info] 	at com.google.common.util.concurrent.Futures$AbstractCatchingFuture.run(Futures.java:789)
+[info] 	at com.google.common.util.concurrent.MoreExecutors$DirectExecutor.execute(MoreExecutors.java:456)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.executeListener(AbstractFuture.java:817)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.complete(AbstractFuture.java:753)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.setException(AbstractFuture.java:634)
+[info] 	at com.google.common.util.concurrent.Futures$AbstractChainingFuture.run(Futures.java:1405)
+[info] 	at com.google.common.util.concurrent.MoreExecutors$DirectExecutor.execute(MoreExecutors.java:456)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.executeListener(AbstractFuture.java:817)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.complete(AbstractFuture.java:753)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.setException(AbstractFuture.java:634)
+[info] 	at com.google.common.util.concurrent.SettableFuture.setException(SettableFuture.java:53)
+[info] 	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:222)
+[info] 	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:194)
+[info] 	at io.netty.util.concurrent.DefaultPromise.notifyListener0(DefaultPromise.java:512)
+[info] 	at io.netty.util.concurrent.DefaultPromise.notifyListeners0(DefaultPromise.java:505)
+[info] 	at io.netty.util.concurrent.DefaultPromise.notifyListenersNow(DefaultPromise.java:484)
+[info] 	at io.netty.util.concurrent.DefaultPromise.notifyListeners(DefaultPromise.java:425)
+[info] 	at io.netty.util.concurrent.DefaultPromise.tryFailure(DefaultPromise.java:122)
+[info] 	at io.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:220)
+[info] 	at io.netty.util.concurrent.PromiseTask$RunnableAdapter.call(PromiseTask.java:38)
+[info] 	at io.netty.util.concurrent.ScheduledFutureTask.run(ScheduledFutureTask.java:120)
+[info] 	at io.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:399)
+[info] 	at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:464)
+[info] 	at io.netty.util.concurrent.SingleThreadEventExecutor$2.run(SingleThreadEventExecutor.java:131)
+[info] 	at io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+[info] 	at java.lang.Thread.run(Thread.java:748)
+[info] 2020-07-04T00:10:17.448Z com.datastax.driver.core.Session [] - Error creating pool to /192.168.2.145:9042
+[info] com.datastax.driver.core.exceptions.ConnectionException: [/192.168.2.145:9042] Pool was closed during initialization
+[info] 	at com.datastax.driver.core.HostConnectionPool$2.onSuccess(HostConnectionPool.java:173)
+[info] 	at com.datastax.driver.core.HostConnectionPool$2.onSuccess(HostConnectionPool.java:158)
+[info] 	at com.google.common.util.concurrent.Futures$6.run(Futures.java:1773)
+[info] 	at com.google.common.util.concurrent.MoreExecutors$DirectExecutor.execute(MoreExecutors.java:456)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.executeListener(AbstractFuture.java:817)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.complete(AbstractFuture.java:753)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.set(AbstractFuture.java:613)
+[info] 	at com.google.common.util.concurrent.CollectionFuture$CollectionFutureRunningState.handleAllCompleted(CollectionFuture.java:76)
+[info] 	at com.google.common.util.concurrent.AggregateFuture$RunningState.processCompleted(AggregateFuture.java:255)
+[info] 	at com.google.common.util.concurrent.AggregateFuture$RunningState.decrementCountAndMaybeComplete(AggregateFuture.java:242)
+[info] 	at com.google.common.util.concurrent.AggregateFuture$RunningState.access$300(AggregateFuture.java:91)
+[info] 	at com.google.common.util.concurrent.AggregateFuture$RunningState$1.run(AggregateFuture.java:146)
+[info] 	at com.google.common.util.concurrent.MoreExecutors$DirectExecutor.execute(MoreExecutors.java:456)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.executeListener(AbstractFuture.java:817)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.complete(AbstractFuture.java:753)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.completeWithFuture(AbstractFuture.java:730)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.setFuture(AbstractFuture.java:666)
+[info] 	at com.google.common.util.concurrent.Futures$AsyncCatchingFuture.doFallback(Futures.java:826)
+[info] 	at com.google.common.util.concurrent.Futures$AsyncCatchingFuture.doFallback(Futures.java:813)
+[info] 	at com.google.common.util.concurrent.Futures$AbstractCatchingFuture.run(Futures.java:789)
+[info] 	at com.google.common.util.concurrent.MoreExecutors$DirectExecutor.execute(MoreExecutors.java:456)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.executeListener(AbstractFuture.java:817)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.complete(AbstractFuture.java:753)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.completeWithFuture(AbstractFuture.java:730)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.setFuture(AbstractFuture.java:666)
+[info] 	at com.google.common.util.concurrent.Futures$AsyncCatchingFuture.doFallback(Futures.java:826)
+[info] 	at com.google.common.util.concurrent.Futures$AsyncCatchingFuture.doFallback(Futures.java:813)
+[info] 	at com.google.common.util.concurrent.Futures$AbstractCatchingFuture.run(Futures.java:789)
+[info] 	at com.google.common.util.concurrent.MoreExecutors$DirectExecutor.execute(MoreExecutors.java:456)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.executeListener(AbstractFuture.java:817)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.complete(AbstractFuture.java:753)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.setException(AbstractFuture.java:634)
+[info] 	at com.google.common.util.concurrent.Futures$AbstractChainingFuture.run(Futures.java:1405)
+[info] 	at com.google.common.util.concurrent.MoreExecutors$DirectExecutor.execute(MoreExecutors.java:456)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.executeListener(AbstractFuture.java:817)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.complete(AbstractFuture.java:753)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.setException(AbstractFuture.java:634)
+[info] 	at com.google.common.util.concurrent.SettableFuture.setException(SettableFuture.java:53)
+[info] 	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:222)
+[info] 	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:194)
+[info] 	at io.netty.util.concurrent.DefaultPromise.notifyListener0(DefaultPromise.java:512)
+[info] 	at io.netty.util.concurrent.DefaultPromise.notifyListeners0(DefaultPromise.java:505)
+[info] 	at io.netty.util.concurrent.DefaultPromise.notifyListenersNow(DefaultPromise.java:484)
+[info] 	at io.netty.util.concurrent.DefaultPromise.notifyListeners(DefaultPromise.java:425)
+[info] 	at io.netty.util.concurrent.DefaultPromise.tryFailure(DefaultPromise.java:122)
+[info] 	at io.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:220)
+[info] 	at io.netty.util.concurrent.PromiseTask$RunnableAdapter.call(PromiseTask.java:38)
+[info] 	at io.netty.util.concurrent.ScheduledFutureTask.run(ScheduledFutureTask.java:120)
+[info] 	at io.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:399)
+[info] 	at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:464)
+[info] 	at io.netty.util.concurrent.SingleThreadEventExecutor$2.run(SingleThreadEventExecutor.java:131)
+[info] 	at io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+[info] 	at java.lang.Thread.run(Thread.java:748)
+[info] 2020-07-04T00:10:17.619Z com.datastax.driver.core.utils.UUIDs [] - PID obtained through native call to getpid(): 1656
+[info] 2020-07-04T00:10:17.834Z com.datastax.driver.core.ClockFactory [] - Using native clock to generate timestamps.
+[info] 2020-07-04T00:10:19.289Z com.datastax.driver.core.Cluster [] - You listed cds-proxy-pub-bp1klva0yqb61d2z-1-core-003.cassandra.rds.aliyuncs.com/120.55.158.139:9042 in your contact points, but it wasn't found in the control host's system.peers at startup
+[info] 2020-07-04T00:10:19.289Z com.datastax.driver.core.Cluster [] - You listed cds-proxy-pub-bp1klva0yqb61d2z-1-core-002.cassandra.rds.aliyuncs.com/47.110.202.17:9042 in your contact points, but it wasn't found in the control host's system.peers at startup
+[info] 2020-07-04T00:10:20.158Z com.datastax.driver.core.policies.DCAwareRoundRobinPolicy [] - Using data-center name 'cn-hangzhou-g' for DCAwareRoundRobinPolicy (if this is incorrect, please provide the correct datacenter name with DCAwareRoundRobinPolicy constructor)
+[info] 2020-07-04T00:10:20.158Z com.datastax.driver.core.Cluster [] - New Cassandra host cds-proxy-pub-bp1klva0yqb61d2z-1-core-001.cassandra.rds.aliyuncs.com/112.124.192.86:9042 added
+[info] 2020-07-04T00:10:20.158Z com.datastax.driver.core.Cluster [] - New Cassandra host /192.168.2.144:9042 added
+[info] 2020-07-04T00:10:20.158Z com.datastax.driver.core.Cluster [] - New Cassandra host /192.168.2.146:9042 added
+[info] 2020-07-04T00:10:25.165Z com.datastax.driver.core.HostConnectionPool [] - Error creating connection to /192.168.2.144:9042
+[info] com.datastax.driver.core.exceptions.TransportException: [/192.168.2.144:9042] Cannot connect
+[info] 	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:224)
+[info] 	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:194)
+[info] 	at io.netty.util.concurrent.DefaultPromise.notifyListener0(DefaultPromise.java:512)
+[info] 	at io.netty.util.concurrent.DefaultPromise.notifyListeners0(DefaultPromise.java:505)
+[info] 	at io.netty.util.concurrent.DefaultPromise.notifyListenersNow(DefaultPromise.java:484)
+[info] 	at io.netty.util.concurrent.DefaultPromise.notifyListeners(DefaultPromise.java:425)
+[info] 	at io.netty.util.concurrent.DefaultPromise.tryFailure(DefaultPromise.java:122)
+[info] 	at io.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:220)
+[info] 	at io.netty.util.concurrent.PromiseTask$RunnableAdapter.call(PromiseTask.java:38)
+[info] 	at io.netty.util.concurrent.ScheduledFutureTask.run(ScheduledFutureTask.java:120)
+[info] 	at io.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:399)
+[info] 	at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:464)
+[info] 	at io.netty.util.concurrent.SingleThreadEventExecutor$2.run(SingleThreadEventExecutor.java:131)
+[info] 	at io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+[info] 	at java.lang.Thread.run(Thread.java:748)
+[info] Caused by: io.netty.channel.ConnectTimeoutException: connection timed out: /192.168.2.144:9042
+[info] 	at io.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:218)
+[info] 	... 7 common frames omitted
+[info] 2020-07-04T00:10:25.166Z com.datastax.driver.core.Session [] - Error creating pool to /192.168.2.144:9042
+[info] com.datastax.driver.core.exceptions.ConnectionException: [/192.168.2.144:9042] Pool was closed during initialization
+[info] 	at com.datastax.driver.core.HostConnectionPool$2.onSuccess(HostConnectionPool.java:173)
+[info] 	at com.datastax.driver.core.HostConnectionPool$2.onSuccess(HostConnectionPool.java:158)
+[info] 	at com.google.common.util.concurrent.Futures$6.run(Futures.java:1773)
+[info] 	at com.google.common.util.concurrent.MoreExecutors$DirectExecutor.execute(MoreExecutors.java:456)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.executeListener(AbstractFuture.java:817)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.complete(AbstractFuture.java:753)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.set(AbstractFuture.java:613)
+[info] 	at com.google.common.util.concurrent.CollectionFuture$CollectionFutureRunningState.handleAllCompleted(CollectionFuture.java:76)
+[info] 	at com.google.common.util.concurrent.AggregateFuture$RunningState.processCompleted(AggregateFuture.java:255)
+[info] 	at com.google.common.util.concurrent.AggregateFuture$RunningState.decrementCountAndMaybeComplete(AggregateFuture.java:242)
+[info] 	at com.google.common.util.concurrent.AggregateFuture$RunningState.access$300(AggregateFuture.java:91)
+[info] 	at com.google.common.util.concurrent.AggregateFuture$RunningState$1.run(AggregateFuture.java:146)
+[info] 	at com.google.common.util.concurrent.MoreExecutors$DirectExecutor.execute(MoreExecutors.java:456)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.executeListener(AbstractFuture.java:817)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.complete(AbstractFuture.java:753)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.completeWithFuture(AbstractFuture.java:730)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.setFuture(AbstractFuture.java:666)
+[info] 	at com.google.common.util.concurrent.Futures$AsyncCatchingFuture.doFallback(Futures.java:826)
+[info] 	at com.google.common.util.concurrent.Futures$AsyncCatchingFuture.doFallback(Futures.java:813)
+[info] 	at com.google.common.util.concurrent.Futures$AbstractCatchingFuture.run(Futures.java:789)
+[info] 	at com.google.common.util.concurrent.MoreExecutors$DirectExecutor.execute(MoreExecutors.java:456)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.executeListener(AbstractFuture.java:817)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.complete(AbstractFuture.java:753)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.completeWithFuture(AbstractFuture.java:730)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.setFuture(AbstractFuture.java:666)
+[info] 	at com.google.common.util.concurrent.Futures$AsyncCatchingFuture.doFallback(Futures.java:826)
+[info] 	at com.google.common.util.concurrent.Futures$AsyncCatchingFuture.doFallback(Futures.java:813)
+[info] 	at com.google.common.util.concurrent.Futures$AbstractCatchingFuture.run(Futures.java:789)
+[info] 	at com.google.common.util.concurrent.MoreExecutors$DirectExecutor.execute(MoreExecutors.java:456)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.executeListener(AbstractFuture.java:817)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.complete(AbstractFuture.java:753)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.setException(AbstractFuture.java:634)
+[info] 	at com.google.common.util.concurrent.Futures$AbstractChainingFuture.run(Futures.java:1405)
+[info] 	at com.google.common.util.concurrent.MoreExecutors$DirectExecutor.execute(MoreExecutors.java:456)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.executeListener(AbstractFuture.java:817)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.complete(AbstractFuture.java:753)
+[info] 	at com.google.common.util.concurrent.AbstractFuture.setException(AbstractFuture.java:634)
+[info] 	at com.google.common.util.concurrent.SettableFuture.setException(SettableFuture.java:53)
+[info] 	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:222)
+[info] 	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:194)
+[info] 	at io.netty.util.concurrent.DefaultPromise.notifyListener0(DefaultPromise.java:512)
+[info] 	at io.netty.util.concurrent.DefaultPromise.notifyListeners0(DefaultPromise.java:505)
+[info] 	at io.netty.util.concurrent.DefaultPromise.notifyListenersNow(DefaultPromise.java:484)
+[info] 	at io.netty.util.concurrent.DefaultPromise.notifyListeners(DefaultPromise.java:425)
+[info] 	at io.netty.util.concurrent.DefaultPromise.tryFailure(DefaultPromise.java:122)
+[info] 	at io.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:220)
+[info] 	at io.netty.util.concurrent.PromiseTask$RunnableAdapter.call(PromiseTask.java:38)
+[info] 	at io.netty.util.concurrent.ScheduledFutureTask.run(ScheduledFutureTask.java:120)
+[info] 	at io.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:399)
+[info] 	at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:464)
+[info] 	at io.netty.util.concurrent.SingleThreadEventExecutor$2.run(SingleThreadEventExecutor.java:131)
+[info] 	at io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+[info] 	at java.lang.Thread.run(Thread.java:748)
+[info] 2020-07-04T00:10:25.166Z com.datastax.driver.core.HostConnectionPool [] - Error creating connection to /192.168.2.146:9042
+[info] com.datastax.driver.core.exceptions.TransportException: [/192.168.2.146:9042] Cannot connect
+[info] 	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:224)
+[info] 	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:194)
+[info] 	at io.netty.util.concurrent.DefaultPromise.notifyListener0(DefaultPromise.java:512)
+[info] 	at io.netty.util.concurrent.DefaultPromise.notifyListeners0(DefaultPromise.java:505)
+[info] 	at io.netty.util.concurrent.DefaultPromise.notifyListenersNow(DefaultPromise.java:484)
+[info] 	at io.netty.util.concurrent.DefaultPromise.notifyListeners(DefaultPromise.java:425)
+[info] 	at io.netty.util.concurrent.DefaultPromise.tryFailure(DefaultPromise.java:122)
+[info] 	at io.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:220)
+[info] 	at io.netty.util.concurrent.PromiseTask$RunnableAdapter.call(PromiseTask.java:38)
+[info] 	at io.netty.util.concurrent.ScheduledFutureTask.run(ScheduledFutureTask.java:120)
+[info] 	at io.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:399)
+[info] 	at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:464)
+[info] 	at io.netty.util.concurrent.SingleThreadEventExecutor$2.run(SingleThreadEventExecutor.java:131)
+[info] 	at io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+[info] 	at java.lang.Thread.run(Thread.java:748)
+[info] Caused by: io.netty.channel.ConnectTimeoutException: connection timed out: /192.168.2.146:9042
+[info] 	at io.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:218)
+[info] 	... 7 common frames omitted
+[info] 2020-07-04T00:10:27.114Z akka.persistence.cassandra.query.EventsByTagStage [akkaAddress=akka://RayDemo@127.0.0.1:25524, sourceThread=RayDemo-akka.actor.default-dispatcher-10, akkaSource=EventsByTagStage(akka://RayDemo), sourceActorSystem=RayDemo, akkaTimestamp=00:10:27.113UTC] - [18a3ccd1-e645-417e-ab9d-cc426a449ca7]: EventsByTag query [CommonEvtTag] starting with EC delay 5000ms: fromOffset [a4698000-8f19-11e5-8080-808080808080 (2015-11-20 00:00:00:000)] toOffset [None]
+
+[warn] Canceling execution...
+[info] 2020-07-04T01:22:01.950Z akka.cluster.Cluster [akkaRemoteAddressUid=-5143654386675091405, akkaAddress=akka://RayDemo@127.0.0.1:25524, sourceThread=RayDemo-akka.actor.internal-dispatcher-2, akkaSource=Cluster(akka://RayDemo), sourceActorSystem=RayDemo, akkaRemoteAddress=akka://RayDemo@127.0.0.1:25524, akkaTimestamp=01:22:01.924UTC, akkaMemberStatus=Leaving] - Cluster Node [akka://RayDemo@127.0.0.1:25524] - Marked address [akka://RayDemo@127.0.0.1:25524] as [Leaving]
+[info] 2020-07-04T01:22:02.225Z akka.cluster.Cluster [akkaRemoteAddressUid=-5143654386675091405, akkaAddress=akka://RayDemo@127.0.0.1:25524, sourceThread=RayDemo-akka.actor.internal-dispatcher-9, akkaSource=Cluster(akka://RayDemo), sourceActorSystem=RayDemo, akkaRemoteAddress=akka://RayDemo@127.0.0.1:25524, akkaTimestamp=01:22:02.223UTC, akkaMemberStatus=Exiting] - Cluster Node [akka://RayDemo@127.0.0.1:25524] - Leader is moving node [akka://RayDemo@127.0.0.1:25524] to [Exiting]
+[info] 2020-07-04T01:22:02.229Z akka.cluster.Cluster [akkaAddress=akka://RayDemo@127.0.0.1:25524, sourceThread=RayDemo-akka.actor.internal-dispatcher-9, akkaSource=Cluster(akka://RayDemo), sourceActorSystem=RayDemo, akkaTimestamp=01:22:02.228UTC] - Cluster Node [akka://RayDemo@127.0.0.1:25524] - Exiting completed
+[info] 2020-07-04T01:22:02.236Z akka.cluster.Cluster [akkaAddress=akka://RayDemo@127.0.0.1:25524, sourceThread=RayDemo-akka.actor.internal-dispatcher-9, akkaSource=Cluster(akka://RayDemo), sourceActorSystem=RayDemo, akkaTimestamp=01:22:02.230UTC] - Cluster Node [akka://RayDemo@127.0.0.1:25524] - Shutting down...
+[info] 2020-07-04T01:22:02.236Z akka.cluster.Cluster [akkaAddress=akka://RayDemo@127.0.0.1:25524, sourceThread=RayDemo-akka.actor.internal-dispatcher-9, akkaSource=Cluster(akka://RayDemo), sourceActorSystem=RayDemo, akkaTimestamp=01:22:02.232UTC] - Cluster Node [akka://RayDemo@127.0.0.1:25524] - Successfully shut down
+[info] 2020-07-04T01:22:02.269Z akka.remote.RemoteActorRefProvider$RemotingTerminator [akkaAddress=akka://RayDemo@127.0.0.1:25524, sourceThread=RayDemo-akka.remote.default-remote-dispatcher-6, akkaSource=akka://RayDemo@127.0.0.1:25524/system/remoting-terminator, sourceActorSystem=RayDemo, akkaTimestamp=01:22:02.268UTC] - Shutting down remote daemon.
+[info] 2020-07-04T01:22:02.269Z akka.remote.RemoteActorRefProvider$RemotingTerminator [akkaAddress=akka://RayDemo@127.0.0.1:25524, sourceThread=RayDemo-akka.remote.default-remote-dispatcher-6, akkaSource=akka://RayDemo@127.0.0.1:25524/system/remoting-terminator, sourceActorSystem=RayDemo, akkaTimestamp=01:22:02.269UTC] - Remote daemon shut down; proceeding with flushing remote transports.
+
+[warn] Canceling execution...
+[info] 2020-07-04T01:22:02.292Z akka.remote.RemoteActorRefProvider$RemotingTerminator [akkaAddress=akka://RayDemo@127.0.0.1:25524, sourceThread=RayDemo-akka.remote.default-remote-dispatcher-8, akkaSource=akka://RayDemo@127.0.0.1:25524/system/remoting-terminator, sourceActorSystem=RayDemo, akkaTimestamp=01:22:02.291UTC] - Remoting shut down.
+[info] 2020-07-04T01:22:02.317Z com.datastax.driver.core.policies.LoggingRetryPolicy [] - Retrying on request error on next host at consistency QUORUM (initial consistency: QUORUM, retries: 0, exception: com.datastax.driver.core.exceptions.TransportException: [cds-proxy-pub-bp1klva0yqb61d2z-1-core-001.cassandra.rds.aliyuncs.com/112.124.192.86:9042] Channel has been closed)
+[info] 2020-07-04T01:22:02.322Z com.datastax.driver.core.policies.LoggingRetryPolicy [] - Retrying on request error on next host at consistency QUORUM (initial consistency: QUORUM, retries: 0, exception: com.datastax.driver.core.exceptions.TransportException: [cds-proxy-pub-bp1klva0yqb61d2z-1-core-001.cassandra.rds.aliyuncs.com/112.124.192.86:9042] Channel has been closed)
+[error] Total time: 4321 s (01:12:01), completed Jul 3, 2020 9:22:02 PM
+[warn] Run canceled.

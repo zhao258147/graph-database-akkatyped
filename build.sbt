@@ -120,7 +120,7 @@ lazy val `saga` = (project in file("saga"))
     name := "saga",
     credentials in ThisBuild += Credentials(Path.userHome / ".lightbend" / "commercial.credentials"),
     resolvers in ThisBuild += "lightbend-commercial-maven" at "https://repo.lightbend.com/commercial-releases",
-    version := "0.6.35",
+    version := "0.6.36",
     scalaVersion := "2.12.11",
     cinnamon in run := true,
     dockerExposedPorts ++= Seq(8081, 25520, 8558),
@@ -141,6 +141,34 @@ lazy val `saga` = (project in file("saga"))
     )
   )
 ).enablePlugins(JavaAppPackaging).enablePlugins(DockerPlugin).enablePlugins(Cinnamon).dependsOn(`user`, `graph`)
+
+lazy val `analytics` = (project in file("analytics"))
+  .settings(Seq(
+    organization := "com.gotin",
+    name := "analytics",
+    credentials in ThisBuild += Credentials(Path.userHome / ".lightbend" / "commercial.credentials"),
+    resolvers in ThisBuild += "lightbend-commercial-maven" at "https://repo.lightbend.com/commercial-releases",
+    version := "0.0.2-bookmark",
+    scalaVersion := "2.12.11",
+    cinnamon in run := true,
+    dockerExposedPorts ++= Seq(8081, 25520, 8558),
+    dockerRepository := Some("registry.cn-beijing.aliyuncs.com"),
+    dockerUsername := Some("firsttest"),
+    libraryDependencies ++= commonDependencies,
+    libraryDependencies ++= Seq(
+      Cinnamon.library.cinnamonAkkaTyped,
+      Cinnamon.library.cinnamonAkkaPersistence,
+      Cinnamon.library.cinnamonAkkaHttp,
+      Cinnamon.library.cinnamonPrometheus,
+      Cinnamon.library.cinnamonPrometheusHttpServer,
+      Cinnamon.library.cinnamonJvmMetricsProducer
+    ),
+    dependencyOverrides += "com.google.guava" % "guava" % "19.0",
+    PB.targets in Compile := Seq(
+      scalapb.gen() -> (sourceManaged in Compile).value
+    )
+  )
+  ).enablePlugins(JavaAppPackaging).enablePlugins(DockerPlugin).enablePlugins(Cinnamon).dependsOn(`user`, `graph`)
 
 lazy val gatlingVersion = "3.2.1"
 val `benchmarks` = Project(id = "benchmarks",

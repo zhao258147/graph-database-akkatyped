@@ -4,7 +4,8 @@ import scala.concurrent.duration.FiniteDuration
 
 case class AnalyticsConfig (
   http: HttpConfig,
-  cassandraConfig: CassandraConfig
+  cassandraConfig: CassandraConfig,
+  searchURL: String
 )
 
 case class HttpConfig (
