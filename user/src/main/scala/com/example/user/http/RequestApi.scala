@@ -56,7 +56,7 @@ object RequestApi extends Json4sSupport {
             pathPrefix(Segment) { targetUserId =>
               delete {
                 complete(
-                userCordinator.ask[UserReply] { ref: ActorRef[UserReply] =>
+                  userCordinator.ask[UserReply] { ref: ActorRef[UserReply] =>
                     ShardingEnvelope(
                       userId,
                       RemoveBookmarkedByRequest(userId, targetUserId, ref)

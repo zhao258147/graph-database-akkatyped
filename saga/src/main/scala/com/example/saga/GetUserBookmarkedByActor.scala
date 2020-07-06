@@ -72,15 +72,17 @@ object GetUserBookmarkedByActor {
           Behaviors.stopped
 
         case x =>
+          println("waitingForUserReply")
+          println(x)
           bookmark.replyTo ! GetUserBookmarkedByFailed("Could not get bookmarked users")
           Behaviors.stopped
       }
 
-    def waitingForBookmarkUsersResponse(bookmark: GetBookmarkedByWithUserInfo, userInfo: UserInfo, receivedUserInfo: Set[UserInfo]): Behavior[GetUserBookmarkedByCommand] =
+    def waitingForBookmarkUsersResponse(bookmark: GetBookmarkedByWithUserInfo, userInfo: UserInfo, receivedUserInfo: Set[UserInfo], noData: Int = 0): Behavior[GetUserBookmarkedByCommand] =
       Behaviors.receiveMessage {
         case WrappedUserEntityResponse(wrapperUserReply: UserInfo) =>
           val updatedReceivedUserInfo: Set[UserInfo] = receivedUserInfo + wrapperUserReply
-          if(userInfo.bookmarkedBy.size == updatedReceivedUserInfo.size) {
+          if(userInfo.bookmarkedBy.size == updatedReceivedUserInfo.size + noData) {
             bookmark.replyTo ! GetUserBookmarkedBySuccess(
               bookmark.userId, 
               updatedReceivedUserInfo.map{ x: UserInfo =>
@@ -90,9 +92,25 @@ object GetUserBookmarkedByActor {
 
             Behaviors.stopped
           } else {
-            waitingForBookmarkUsersResponse(bookmark, userInfo, updatedReceivedUserInfo)  
+            waitingForBookmarkUsersResponse(bookmark, userInfo, updatedReceivedUserInfo, noData)
           }
+        case WrappedUserEntityResponse(_: UserCommandFailed) =>
+          if(userInfo.bookmarkedBy.size == receivedUserInfo.size + noData + 1) {
+            bookmark.replyTo ! GetUserBookmarkedBySuccess(
+              bookmark.userId,
+              receivedUserInfo.map{ x: UserInfo =>
+                x.userId -> x.properties
+              }.toMap
+            )
+
+            Behaviors.stopped
+          } else {
+            waitingForBookmarkUsersResponse(bookmark, userInfo, receivedUserInfo, noData + 1)
+          }
+
         case x =>
+          println("waitingForBookmarkUsersResponse")
+          println(x)
           bookmark.replyTo ! GetUserBookmarkedByFailed("Could not get bookmarked users")
           Behaviors.stopped
       }
