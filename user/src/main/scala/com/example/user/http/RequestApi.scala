@@ -109,11 +109,6 @@ object RequestApi extends Json4sSupport {
                       req.userId,
                       UpdateUserCommand(req.userId, req.properties, req.labels, ref)
                     )
-                }.map{
-                  case _: UserCommandSuccess =>
-                    complete(StatusCodes.OK)
-                  case _ =>
-                    complete(StatusCodes.BadRequest)
                 }
               )
             }
@@ -127,11 +122,6 @@ object RequestApi extends Json4sSupport {
                   createCommand.userId,
                   CreateUserCommand(createCommand.userId, createCommand.userType, createCommand.properties, createCommand.labels, ref)
                 )
-              }.map{
-                case _: UserCommandSuccess =>
-                  complete(StatusCodes.OK)
-                case _ =>
-                  complete(StatusCodes.BadRequest)
               }
             )
           }

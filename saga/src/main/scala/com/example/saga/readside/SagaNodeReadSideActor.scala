@@ -62,18 +62,22 @@ object SagaNodeReadSideActor {
       def collectNewNode(nodeMap: HashMap[String, NodeInfo], nodesByCompany: HashMap[String, Seq[NodeInfo]]): Behavior[SagaNodeReadSideCommand] =
         Behaviors.receiveMessagePartial{
           case NodeInformationUpdate(node) =>
-            println(node)
+            if(node.nodeType == "vod") {
+              collectNewNode(nodeMap, nodesByCompany)
+            } else {
+              println(node)
 
-            val propertyCompanyMap = node.properties.get("company").map{ companyId =>
-              val tempCList = nodesByCompany.getOrElse(companyId, Seq.empty)
-              Map(companyId -> (node +: tempCList.filterNot(_.nodeId == node.nodeId)))
+              val propertyCompanyMap = node.properties.get("company").map{ companyId =>
+                val tempCList = nodesByCompany.getOrElse(companyId, Seq.empty)
+                Map(companyId -> (node +: tempCList.filterNot(_.nodeId == node.nodeId)))
+              }
+
+              val clist = nodesByCompany.getOrElse(node.company, Seq.empty)
+              val companyList = node +: clist.filterNot(_.nodeId == node.nodeId)
+
+              val newCompanyMap = propertyCompanyMap.getOrElse(Map.empty) + (node.company -> companyList)
+              collectNewNode(nodeMap + (node.nodeId -> node), nodesByCompany ++ newCompanyMap)
             }
-
-            val clist = nodesByCompany.getOrElse(node.company, Seq.empty)
-            val companyList = node +: clist.filterNot(_.nodeId == node.nodeId)
-
-            val newCompanyMap = propertyCompanyMap.getOrElse(Map.empty) + (node.company -> companyList)
-            collectNewNode(nodeMap + (node.nodeId -> node), nodesByCompany ++ newCompanyMap)
 
           case NodeDisabled(nodeId, companyId) =>
             println(s"removing node $nodeId")

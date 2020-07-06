@@ -101,6 +101,7 @@ object GraphNodeEntity {
     Array(
       new JsonSubTypes.Type(value = classOf[GraphNodeEdgeRemoved], name = "GraphNodeEdgeRemoved"),
       new JsonSubTypes.Type(value = classOf[GraphNodeUpdated], name = "GraphNodeUpdated"),
+//      new JsonSubTypes.Type(value = classOf[RecorderGraphNode], name = "RecorderGraphNode"),
       new JsonSubTypes.Type(value = classOf[GraphNodeDisabled], name = "GraphNodeDisabled"),
       new JsonSubTypes.Type(value = classOf[GraphNodeParamsUpdated], name = "GraphNodeParamsUpdated"),
       new JsonSubTypes.Type(value = classOf[GraphNodeClickUpdated], name = "GraphNodeClickUpdated"),
@@ -109,6 +110,7 @@ object GraphNodeEntity {
   sealed trait GraphNodeEvent
   case class GraphNodeUpdated(id: NodeId, nodeType: NodeType, companyId: String, tags: Tags, properties: NodeProperties) extends GraphNodeEvent
   case class GraphNodeDisabled(id: NodeId, companyId: String) extends GraphNodeEvent
+//  case class RecorderGraphNode(id: NodeId) extends GraphNodeEvent
 
   case class GraphNodeParamsUpdated(id: NodeId,
     numberOfRecommendationsToTakeOpt: Option[Int] = None,
@@ -186,6 +188,8 @@ object GraphNodeEntity {
                     GraphNodeCommandFailed(create.nodeId, "Node creation failed")
                 }
             case cmd =>
+
+
               Effect.reply(cmd.replyTo)(GraphNodeCommandFailed(cmd.nodeId, "Node does not exist"))
           }
         case createdState: CreatedGraphNodeState =>
@@ -240,16 +244,41 @@ object GraphNodeEntity {
               val visitorLabels = updateEdge.visitorLabels.getOrElse(createdState.tags.keys.map(_ -> 1)).toMap
               val evt = GraphNodeEdgeUpdated(updateEdge.edgeType, updateEdge.direction, updateEdge.properties, updateEdge.userId, visitorLabels, updateEdge.weight)
               val ts = System.currentTimeMillis()
-              val incrementalClicks = createdState.clicks - createdState.previousClicks
+              val incrementalClicks = createdState.clicks - createdState.previousClicks + 1
+
+              val edgesCounter: Counter = CinnamonMetrics(context).createCounter("referees", Map("nodeId" -> createdState.nodeId, "nodeType" -> createdState.nodeId, "companyId" -> createdState.companyId))
+              val visitLengthRecorder: Recorder = CinnamonMetrics(context).createRecorder("visitlength", Map("nodeId" -> createdState.nodeId, "nodeType" -> createdState.nodeId, "companyId" -> createdState.companyId))
+              val activeVisitorRecorder: Recorder = CinnamonMetrics(context).createRecorder("activevisitors", Map("nodeId" -> createdState.nodeId, "nodeType" -> createdState.nodeId, "companyId" -> createdState.companyId))
+
+              if(!createdState.outEdges.contains(updateEdge.direction.nodeId)) edgesCounter.increment()
+              createdState.activeVisitors.get(updateEdge.userId) foreach { ts =>
+                visitLengthRecorder.record(System.currentTimeMillis() - ts)
+                context.log.debug("visitLengthRecorder " + (System.currentTimeMillis() - ts))
+              }
+
               if(ts - createdState.previousClickCommit > createdState.clickRecorderIncrementalTimeMS || incrementalClicks > createdState.clickRecorderIncrementalClicks)
                 Effect
                   .persist(
                     evt,
                     GraphNodeClickUpdated(createdState.nodeId, createdState.companyId, createdState.nodeType, createdState.tags, ts, incrementalClicks)
                   )
-                  .thenReply(updateEdge.replyTo)(_ => GraphNodeCommandSuccess(updateEdge.nodeId))
-              else Effect.persist(evt).thenReply(updateEdge.replyTo)(_ => GraphNodeCommandSuccess(updateEdge.nodeId))
-
+                  .thenReply(updateEdge.replyTo){
+                    case st: CreatedGraphNodeState =>
+                      activeVisitorRecorder.record(st.activeVisitors.size)
+                      context.log.debug(s"active user size: ${st.activeVisitors.size}")
+                      GraphNodeCommandSuccess(updateEdge.nodeId)
+                    case _ =>
+                      GraphNodeCommandFailed(updateEdge.nodeId, "unknown error")
+                  }
+              else
+                Effect.persist(evt).thenReply(updateEdge.replyTo){
+                  case st: CreatedGraphNodeState =>
+                    activeVisitorRecorder.record(st.activeVisitors.size)
+                    context.log.debug(s"active user size: ${st.activeVisitors.size}")
+                    GraphNodeCommandSuccess(updateEdge.nodeId)
+                  case _ =>
+                    GraphNodeCommandFailed(updateEdge.nodeId, "unknown error")
+                }
 
             case nodeQuery: NodeQuery =>
               Effect.reply(nodeQuery.replyTo)(NodeQueryResult(createdState.nodeId, createdState.nodeType, createdState.properties, createdState.tags, createdState.outEdges.values.toList.flatMap(_.values).toSet, createdState.uniqueVisitors))
@@ -284,6 +313,17 @@ object GraphNodeEntity {
                   sweight > createdState.similarUserEdgeWeightFilter && sid.visitorId != query.visitorId
               }.sortWith(_._2 > _._2).map(_._1).take(createdState.numberOfSimilarUsersToTake)
 
+              context.log.debug(s"nodeId: ${query.nodeId}, userid: ${query.visitorId}")
+              context.log.debug("clickrate + 1")
+              val clickrate: Rate = CinnamonMetrics(context).createRate("clickrate", Map("nodeId" -> createdState.nodeId, "nodeType" -> createdState.nodeId, "companyId" -> createdState.companyId))
+              clickrate.mark()
+              if(createdState.uniqueVisitors.contains(query.visitorId)) {
+                context.log.debug("uniquevisitor + 1")
+                val uniquevisitorCounter: Recorder = CinnamonMetrics(context).createRecorder("uniquevisitors", Map("nodeId" -> createdState.nodeId, "nodeType" -> createdState.nodeId, "companyId" -> createdState.companyId))
+                uniquevisitorCounter.record(createdState.uniqueVisitors.size + 1)
+              }
+              val activeVisitorRecorder: Recorder = CinnamonMetrics(context).createRecorder("activevisitors", Map("nodeId" -> createdState.nodeId, "nodeType" -> createdState.nodeId, "companyId" -> createdState.companyId))
+
               val edgeQueryResult = RecommendedResult(createdState.nodeId, createdState.nodeType, createdState.tags, createdState.properties, tagMatching, popular, createdState.clicks, createdState.uniqueVisitors.size, createdState.activeVisitors.size, similarUsers)
               val visitorUpdate = GraphNodeVisitorUpdated(query.visitorId, System.currentTimeMillis(), query.visitorLabels)
               query.referrerNodeId match {
@@ -291,10 +331,23 @@ object GraphNodeEntity {
                   Effect.persist(
                     visitorUpdate,
                     GraphNodeEdgeUpdated(ReferralEdgeType, From(referrer), Map.empty, query.visitorId, query.visitorLabels)
-                  ).thenReply(query.replyTo)(_ => edgeQueryResult)
-
+                  ).thenReply(query.replyTo){
+                    case st: CreatedGraphNodeState =>
+                      activeVisitorRecorder.record(st.activeVisitors.size)
+                      context.log.debug(s"active user size: ${st.activeVisitors.size}")
+                      edgeQueryResult
+                    case _ =>
+                      GraphNodeCommandFailed(query.nodeId, "unknown error")
+                  }
                 case None =>
-                  Effect.persist(visitorUpdate).thenReply(query.replyTo)(_ => edgeQueryResult)
+                  Effect.persist(visitorUpdate).thenReply(query.replyTo){
+                    case st: CreatedGraphNodeState =>
+                      activeVisitorRecorder.record(st.activeVisitors.size)
+                      context.log.debug(s"active user size: ${st.activeVisitors.size}")
+                      edgeQueryResult
+                    case _ =>
+                      GraphNodeCommandFailed(query.nodeId, "unknown error")
+                  }
               }
 
             case checkEdge: EdgeQuery =>
@@ -398,31 +451,11 @@ object GraphNodeEntity {
             val targetEdges = createdState.outEdges.getOrElse(edgeType, Map.empty)
             val newTargetEdges = targetEdges + (nodeId -> updatedEdge)
 
-//            context.log.debug(newTargetEdges.toString)
-
-            val newUniqueVisitors =
-              if(createdState.uniqueVisitors.contains(visitorId)) createdState.uniqueVisitors
-              else visitorId +: createdState.uniqueVisitors
-
-            val clickrate: Rate = CinnamonMetrics(context).createRate("clickrate", Map("nodeId" -> createdState.nodeId, "nodeType" -> createdState.nodeId, "companyId" -> createdState.companyId))
-            val uniquevisitorCounter: Recorder = CinnamonMetrics(context).createRecorder("uniquevisitors", Map("nodeId" -> createdState.nodeId, "nodeType" -> createdState.nodeId, "companyId" -> createdState.companyId))
-            val edgesCounter: Counter = CinnamonMetrics(context).createCounter("referees", Map("nodeId" -> createdState.nodeId, "nodeType" -> createdState.nodeId, "companyId" -> createdState.companyId))
-            val visitLengthRecorder: Recorder = CinnamonMetrics(context).createRecorder("visitlength", Map("nodeId" -> createdState.nodeId, "nodeType" -> createdState.nodeId, "companyId" -> createdState.companyId))
-            val activeVisitorRecorder: Recorder = CinnamonMetrics(context).createRecorder("activevisitors", Map("nodeId" -> createdState.nodeId, "nodeType" -> createdState.nodeId, "companyId" -> createdState.companyId))
-
-            clickrate.mark()
-            uniquevisitorCounter.record(newUniqueVisitors.size)
-            if(!targetEdges.contains(nodeId)) edgesCounter.increment()
-            createdState.activeVisitors.get(visitorId) foreach { ts =>
-              visitLengthRecorder.record(System.currentTimeMillis() - ts)
-            }
-            activeVisitorRecorder.record(createdState.activeVisitors.size)
+            val updatedActiveVisitors = createdState.activeVisitors.filter(x => System.currentTimeMillis() - x._2 > 60 * 60 * 1000) - visitorId
 
             createdState.copy(
               outEdges = createdState.outEdges + (edgeType -> newTargetEdges),
-              uniqueVisitors = newUniqueVisitors.take(createdState.numberOfUniqueVisitorsToKeep),
-              clicks = createdState.clicks + 1,
-              activeVisitors = createdState.activeVisitors - visitorId
+              activeVisitors = updatedActiveVisitors
             )
 
           case GraphNodeEdgeUpdated(edgeType, From(nodeId), properties, visitorId, labels, weight) =>
@@ -452,8 +485,6 @@ object GraphNodeEntity {
             if(!targetEdges.contains(nodeId))
               CinnamonMetrics(context).createCounter("referrers", Map("nodeId" -> createdState.nodeId, "nodeType" -> createdState.nodeId, "companyId" -> createdState.companyId)).increment()
 
-//            context.log.debug(newTargetEdges.toString)
-
             createdState.copy(
               inEdges = createdState.inEdges + (edgeType -> newTargetEdges)
             )
@@ -466,9 +497,20 @@ object GraphNodeEntity {
 
           case GraphNodeVisitorUpdated(visitorId, ts, labels) =>
             val updatedVisitorLabels = VisitorLabel(visitorId, labels) +: createdState.visitorLabels.filter(_.visitorId != visitorId)
+            val updatedActiveVisitors = createdState.activeVisitors.filter(x => System.currentTimeMillis() - x._2 > 60 * 60 * 1000) + (visitorId -> ts)
+            val newUniqueVisitors =
+              if(createdState.uniqueVisitors.contains(visitorId)) createdState.uniqueVisitors
+              else visitorId +: createdState.uniqueVisitors
+            val filteredUniqueVisitors =
+              if(newUniqueVisitors.size > createdState.numberOfUniqueVisitorsToKeep)
+                newUniqueVisitors.take(createdState.numberOfUniqueVisitorsToKeep)
+              else newUniqueVisitors
+
             createdState.copy(
               visitorLabels = updatedVisitorLabels.take(createdState.numberOfUpdatedVisitorLabelsToKeep),
-              activeVisitors = createdState.activeVisitors + (visitorId -> ts)
+              activeVisitors = updatedActiveVisitors,
+              uniqueVisitors = filteredUniqueVisitors,
+              clicks = createdState.clicks + 1
             )
         }
     }
